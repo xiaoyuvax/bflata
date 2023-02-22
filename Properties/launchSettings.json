@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BFlatA": {
+      "commandName": "Project",
+      "commandLineArgs": "D:\\Repos\\LoraMonitor\\branches\\1.7-MemoryPack\\Benchmark\\Benchmark.csproj -pr:C:\\Users\\Administrator.SP\\.nuget\\packages -fx:net7.0 --stdlib Dotnet"
+    }
+  }
+}
