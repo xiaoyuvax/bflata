@@ -28,4 +28,4 @@ A building script generator or wrapper for recusively building .csproj file with
 
 ## Compile from code:
 - Compile using dotnet C# compiler
-- Compile using bflat [github.com/bflattened/bflat](https://github.com/bflattened/bflat
+- Compile using bflat [github.com/bflattened/bflat](https://github.com/bflattened/bflat)
