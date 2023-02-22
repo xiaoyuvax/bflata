@@ -556,7 +556,7 @@ namespace BFlatA
             string projectFile = null, packageRoot = null, targetFx = null, outputType = "Exe";
             BuildMode buildMode = BuildMode.None;
 
-            Console.WriteLine($"BFlatA V1.0.0\r\nDescription:\r\n  A building script generator or wrapper for recusively building .csproj file with depending Nuget packages & embedded resources over BFlat, a native C# compiler(https://flattened.net).\r\n");
+            Console.WriteLine($"BFlatA V1.0.0\r\nDescription:\r\n  A building script generator or wrapper for recusively building .csproj file with depending Nuget packages & embedded resources for BFlat, a native C# compiler(flattened.net).\r\n");
 
             bool tryGetArg(string a, string shortName, string fullName, out string value)
             {
