@@ -1,6 +1,3 @@
-
-
-
 # BFlatA
 A building script generator or wrapper for recusively building .csproj file with depending Nuget packages &amp; embedded resources for BFlat, a native C# compiler ([github.com/bflattened/bflat](https://github.com/bflattened/bflat))
 
@@ -94,3 +91,33 @@ output:
     C:\_oss\common-logging\src\Common.Logging.Portable\Logging\LogManager.cs(567): Trim analysis warning IL2072: Common.Logging.LogManager.<>c__DisplayClass35_0.<BuildLoggerFactoryAdapterFromLogSettings>b__0(): 'type' argument does not satisfy 'DynamicallyAccessedMemberTypes.PublicConstructors' in call to 'System.Activator.CreateInstance(Type,Object[])'. The return value of method 'Common.Logging.Configuration.LogSetting.FactoryAdapterType.get' does not have matching annotations. The source value must declare at least the same requirements as those declared on the target location it is assigned to.
     C:\_oss\common-logging\src\Common.Logging.Portable\Logging\LogManager.cs(571): Trim analysis warning IL2072: Common.Logging.LogManager.<>c__DisplayClass35_0.<BuildLoggerFactoryAdapterFromLogSettings>b__0(): 'type' argument does not satisfy 'DynamicallyAccessedMemberTypes.PublicParameterlessConstructor' in call to 'System.Activator.CreateInstance(Type)'. The return value of method 'Common.Logging.Configuration.LogSetting.FactoryAdapterType.get' does not have matching annotations. The source value must declare at least the same requirements as those declared on the target location it is assigned to.
 
+and following is the content of the building script generated above:
+
+    @SET PR=C:\Users\administrator\.nuget\packages
+    @bflat build --target Exe --stdlib Dotnet ^
+    ..\..\..\..\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.cs ^
+    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\ESSevice.cs ^
+    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\IndexableDoc.cs ^
+    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\LogLine.cs ^
+    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLogger.cs ^
+    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLoggerBase.cs ^
+    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLoggerConfiguration.cs ^
+    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLoggerExtensions.cs ^
+    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLoggerProvider.cs ^
+    -r %PR%\common.logging.core\3.4.1\lib\netstandard1.0\Common.Logging.Core.dll ^
+    -r %PR%\common.logging\3.4.1\lib\netstandard1.3\Common.Logging.dll ^
+    -r %PR%\elasticsearch.net\7.17.5\lib\netstandard2.1\Elasticsearch.Net.dll ^
+    -r %PR%\microsoft.csharp\4.6.0\lib\netstandard2.0\Microsoft.CSharp.dll ^
+    -r %PR%\microsoft.extensions.configuration.abstractions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.Abstractions.dll ^
+    -r %PR%\microsoft.extensions.configuration.binder\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.Binder.dll ^
+    -r %PR%\microsoft.extensions.configuration\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.dll ^
+    -r %PR%\microsoft.extensions.dependencyinjection.abstractions\7.0.0\lib\netstandard2.1\Microsoft.Extensions.DependencyInjection.Abstractions.dll ^
+    -r %PR%\microsoft.extensions.dependencyinjection\7.0.0\lib\netstandard2.1\Microsoft.Extensions.DependencyInjection.dll ^
+    -r %PR%\microsoft.extensions.logging.abstractions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Logging.Abstractions.dll ^
+    -r %PR%\microsoft.extensions.logging.configuration\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Logging.Configuration.dll ^
+    -r %PR%\microsoft.extensions.logging\7.0.0\lib\netstandard2.1\Microsoft.Extensions.Logging.dll ^
+    -r %PR%\microsoft.extensions.objectpool\7.0.3\lib\netstandard2.0\Microsoft.Extensions.ObjectPool.dll ^
+    -r %PR%\microsoft.extensions.options.configurationextensions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Options.ConfigurationExtensions.dll ^
+    -r %PR%\microsoft.extensions.options\7.0.0\lib\netstandard2.1\Microsoft.Extensions.Options.dll ^
+    -r %PR%\microsoft.extensions.primitives\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll ^
+    -r %PR%\nest\7.17.5\lib\netstandard2.0\Nest.dll
