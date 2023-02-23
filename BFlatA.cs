@@ -8,6 +8,10 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 
+#if BFLAT
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.1")]
+#endif
+
 namespace BFlatA
 {
     public enum BuildMode
@@ -37,6 +41,7 @@ namespace BFlatA
 
         public static IEnumerable<XElement> OfRemove(this IEnumerable<XElement> r, string elementName) => r.Where(i => i.Name.LocalName.ToLower() == elementName.ToLower() && i.Attribute("Remove") != null);
     }
+
 
     internal static class BFlatA
     {
