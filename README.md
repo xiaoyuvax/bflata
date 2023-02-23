@@ -1,7 +1,7 @@
 # BFlatA
 A building script generator or wrapper for recusively building .csproj file with depending Nuget packages &amp; embedded resources for BFlat, a native C# compiler ([github.com/bflattened/bflat](https://github.com/bflattened/bflat))
 
-This program is relevent to a post from bflat: https://github.com/bflattened/bflat/issues/61
+This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 ##  Usage:
 
