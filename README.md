@@ -1,3 +1,4 @@
+
 # BFlatA
 A building script generator or wrapper for recusively building .csproj file with depending Nuget packages &amp; embedded resources for BFlat, a native C# compiler ([github.com/bflattened/bflat](https://github.com/bflattened/bflat))
 
@@ -5,26 +6,28 @@ This program is relevent to an issue from bflat: https://github.com/bflattened/b
 
 ##  Usage:
 
-     Usage: bflata [build] <csprojectfile> [options]
+      Usage: bflata [build] <csproj file> [options]
     
-      build                                         Build with BFlat in %Path%, if present,ignores -sm arg; if omitted,generate build script only while -bm arg still effective.
-      <csprojectfile>                               Only one project is allowed here, other files will be passed to BFlat.
+      [build]                                       Build with BFlat in %Path%; if omitted,generate building script only while -bm option still effective.
+      <csproj file>                                 The first existing file is parsed, other files will be passed to bflat.
     
     Options:
       -pr|--packageroot:<path to package storage>   eg.C:\Users\%username%\.nuget\packages or $HOME/.nuget/packages .
+      -rp|--refpath:<any path to be related>        a reference path to generate path for files in the building script, can be optimized to reduce path lengths.Default is '.' (current dir).
       -fx|--framework:<moniker>                     the TFM(Target Framework Moniker),such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.
       -bm|--buildmode:<flat|tree>                   flat=flatten reference project trees to one and build;tree=build each project alone and reference'em accordingly with -r option.
-      -sm|--scriptmode:<cmd|sh>                     Windows Batch file(.cmd) or Linux .sh file.
+      -sm|--scriptmode:<cmd|sh>                     Windows Batch file(.cmd) or Linux Shell Script(.sh) file.
       -t|--target:<Exe|Shared|WinExe>               Build Target, this arg will also be passed to BFlat.
-
+    
     Note:
-      Any other args will be passed 'as is' to bflat.
-      BflatA uses '-arg:value' style only, '-arg value' is not supported, though args passing to bflat are not subject to this rule.
-      Only the first existing file would be processed as .csproj file.      
-
+      Any other args will be passed 'as is' to BFlat.
+      BFlatA uses '-arg:value' style only, '-arg value' is not supported, though args passing to bflat are not subject to this rule.
+      Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.
+    
     Examples:
       bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -sm:bat -bm:tree  <- only generate BAT script which builds project tree orderly.
-      bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -sm:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to BFlat.
+      bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -sm:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.
+      
 
 ## Compile:
  Since Bflata is a very tiny program that you can use any of following compilers to build it:
@@ -38,7 +41,7 @@ of course BFlat is prefered to build the program entirely to native code(without
 
 - So far, the "--buildmode:tree" option doesn't work for BFlat, for BFlat are not known to support compiling native libs which can be served in the -r option(i.e. u can only refer to assemblies built by dotnet compiler), but BFlatA will still generate the building script and reference project outputs accordingly.The expected scene had been that each referenced projects being compiled with BFlat separatedly in their respective depending hierachy and referenced accordingly till being compiled into one executable.
 - The "--buildMode:flat" option(default, if -bm not served) can generate flattened building script which incorproate all code files, package references and resources of all referenced .csproj files into one, but this solution cannot solve the issue of version incompatibility of dependencies from different projects, especially secondary dependencies required by Nuget packages. Since version inconsistency of projects can be eliminated by making all projects reference the same packages of the same version, but secondary dependencies among precompiled packages are various and not changeable.
-- Some but not all dependencies referenced by nuget packages starts with "System.*" might have already been included in runtime, which is enabled with "bflat --stdlib Dotnet" option, and have been all excluded from the BFlata generated building script (for most scenario), otherwise you may see error CS0433 as below:
+- Some but not all dependencies referenced by nuget packages with name starts with "System.*" might have already been included in runtime, which is enabled with "bflat --stdlib Dotnet" option, and have been all excluded from the BFlata generated building script (for most scenario), otherwise you may see error CS0433 as below:
 
 > error CS0433: The type 'MD5' exists in both
 > 'System.Security.Cryptography.Algorithms, Version=4.2.1.0,
@@ -46,7 +49,7 @@ of course BFlat is prefered to build the program entirely to native code(without
 > 'System.Security.Cryptography, Version=7.0.0.0, Culture=neutral,
 > PublicKeyToken=b03f5f7f11d50a3a'
 
-but not all lib starts with "System." shall be excluded, such as System.CodDom.dll, which is used by BenchmarkDotNet, and this problem would possibly also be better solved in the future by an exclusion file.
+but not all lib starts with "System." shall be excluded, such as System.CodDom.dll0 which is likely used by BenchmarkDotNet, and this problem would possibly also be better solved in the future by an exclusion file.
 	
 - Parsing resources in .resx file is not implemented yet, for lacking of knowledge of how BFlat handles resources described in .resx file.
 ## Demo project
