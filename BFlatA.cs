@@ -42,7 +42,6 @@ namespace BFlatA
         public static IEnumerable<XElement> OfRemove(this IEnumerable<XElement> r, string elementName) => r.Where(i => i.Name.LocalName.ToLower() == elementName.ToLower() && i.Attribute("Remove") != null);
     }
 
-
     internal static class BFlatA
     {
         public const char ARG_EVALUATION_CHAR = ':';
@@ -512,19 +511,19 @@ namespace BFlatA
 
         public static void ShowHelp()
         {
-            Console.WriteLine("  Usage: bflata [build] <csprojectfile> [options]\r\n");
-            Console.WriteLine("  [build]".PadRight(COL_WIDTH) + "\tBuild with BFlat in %Path%, if present,ignores -sm arg; if omitted,generate build script only while -bm arg still effective.");
-            Console.WriteLine("  <csprojectfile>".PadRight(COL_WIDTH) + "\tOnly one project is allowed here, other files will be passed to bflat.");
+            Console.WriteLine("  Usage: bflata [build] <csproj file> [options]\r\n");
+            Console.WriteLine("  [build]".PadRight(COL_WIDTH) + "\tBuild with BFlat in %Path%; if omitted,generate building script only while -bm option still effective.");
+            Console.WriteLine("  <csproj file>".PadRight(COL_WIDTH) + "\tThe first existing file is parsed, other files will be passed to bflat.");
             Console.WriteLine("\r\nOptions:");
             Console.WriteLine("  -pr|--packageroot:<path to package storage>".PadRight(COL_WIDTH) + "\teg.C:\\Users\\%username%\\.nuget\\packages or $HOME/.nuget/packages .");
             Console.WriteLine("  -fx|--framework:<moniker>".PadRight(COL_WIDTH) + "\tthe TFM(Target Framework Moniker),such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.");
-            Console.WriteLine("  -bm|--buildmode:<flat|tree>".PadRight(COL_WIDTH) + "\tflat=flatten reference project trees to one and build;tree=build each project alone and reference'em accordingly with -r arg.");
-            Console.WriteLine("  -sm|--scriptmode:<cmd|sh>".PadRight(COL_WIDTH) + "\tWindows Batch file(.cmd) or Linux .sh file.");
+            Console.WriteLine("  -bm|--buildmode:<flat|tree>".PadRight(COL_WIDTH) + "\tflat=flatten reference project trees to one and build;tree=build each project alone and reference'em accordingly with -r option.");
+            Console.WriteLine("  -sm|--scriptmode:<cmd|sh>".PadRight(COL_WIDTH) + "\tWindows Batch file(.cmd) or Linux Shell Script(.sh) file.");
             Console.WriteLine("  -t|--target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + "\tBuild Target, this arg will also be passed to BFlat.");
             Console.WriteLine("\r\nNote:");
             Console.WriteLine("  Any other args will be passed 'as is' to BFlat.");
             Console.WriteLine("  BFlatA uses '-arg:value' style only, '-arg value' is not supported, though args passing to bflat are not subject to this rule.");
-            Console.WriteLine("  Only the first existing file would be processed as .csproj file.");
+            Console.WriteLine("  Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.");
             Console.WriteLine("\r\nExamples:");
             Console.WriteLine("  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx=net7.0 -sm:bat -bm:tree  <- only generate BAT script which builds project tree orderly.");
             Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -sm:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.");
