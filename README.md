@@ -1,5 +1,6 @@
 
 
+
 # BFlatA
 A building script generator or wrapper for recusively building .csproj file with depending Nuget packages &amp; embedded resources for BFlat, a native C# compiler ([github.com/bflattened/bflat](https://github.com/bflattened/bflat))
 
@@ -53,7 +54,7 @@ but not all lib starts with "System." shall be excluded, such as System.CodDom.d
 - Parsing resources in .resx file is not implemented yet, for lacking of knowledge of how BFlat handles resources described in .resx file.
 ## Demo project
 
-[ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) is a simple C# project with one Project Reference and one Nuget Package reference, and is minimum for demonstrating how BFlata works with BFlat.
+[ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) is a simple C# project with one Project Reference and one Nuget Package reference together with several secondary dependencies, and is a typical scenario for demonstrating how BFlata works with BFlat.
 
 > Note:It is important to disable `<ImplicitUsings>` in .csproj file,
 > and make sure all necessary namespaces are imported, especially `using
