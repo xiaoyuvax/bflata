@@ -55,6 +55,7 @@ namespace BFlatA
         public static bool UseBuild = false;
         public static char PathSepChar { get; set; } = Path.DirectorySeparatorChar;
         public static string WorkingPath { get; set; } = Directory.GetCurrentDirectory();
+        public static string RefPath { get; set; } = Directory.GetCurrentDirectory();
 
         public static string GenerateScript(string projectName,
                                          IEnumerable<string> restParams,
@@ -87,21 +88,21 @@ namespace BFlatA
             if (codeFileList.Any())
             {
                 cmd.Append(lineFeed);
-                cmd.AppendJoin(lineFeed, codeFileList.OrderBy(i => i));
+                cmd.AppendJoin(lineFeed, codeFileList.Select(i => i.Replace("@", scriptType switch { ScriptType.BAT => "%RP%", ScriptType.SH => "RP", _ => "." })).OrderBy(i => i));
                 Console.WriteLine($"Found {codeFileList.Count()} code files(*.cs)");
             }
 
             if (libBook.Any())
             {
                 cmd.Append(lineFeed + "-r ");
-                cmd.AppendJoin(lineFeed + "-r ", libBook.Select(i => i.Replace("@", scriptType switch { ScriptType.BAT => "%PR%", ScriptType.SH => "$PR", _ => "@" })).OrderBy(i => i));
+                cmd.AppendJoin(lineFeed + "-r ", libBook.Select(i => i.Replace("@", scriptType switch { ScriptType.BAT => "%PR%", ScriptType.SH => "$PR", _ => "." })).OrderBy(i => i));
                 Console.WriteLine($"Found {libBook.Count()} dependent libs(*.dll)");
             }
 
             if (resPaths.Any())
             {
                 cmd.Append(lineFeed + "-res ");
-                cmd.AppendJoin(lineFeed + "-res ", resPaths.OrderBy(i => i));
+                cmd.AppendJoin(lineFeed + "-res ", resPaths.Select(i => i.Replace("@", scriptType switch { ScriptType.BAT => "%RP%", ScriptType.SH => "RP", _ => "." })).OrderBy(i => i));
                 Console.WriteLine($"Found {resPaths.Count()} embedded resources(*.resx and other)");
             }
 
@@ -415,7 +416,7 @@ namespace BFlatA
                             {
                                 IEnumerable<string> items = getAbsPaths(i.Attribute(action)?.Value, projectPath);
                                 //relative paths used by script is relative to WorkingPath
-                                if (!useAbsolutePath) items = items.Select(i => Path.GetRelativePath(WorkingPath, i));
+                                if (!useAbsolutePath) items = items.Select(i => "@" + PathSepChar + Path.GetRelativePath(RefPath, i));
 
                                 book.AddRange(items.Except(book));
 
@@ -450,7 +451,7 @@ namespace BFlatA
                             List<string> codeFiles = new();
                             try
                             {
-                                var files = Directory.GetFiles(path, "*.cs").Except(removeLst).Select(i => Path.GetRelativePath(WorkingPath, i));
+                                var files = Directory.GetFiles(path, "*.cs").Except(removeLst).Select(i => "@" + PathSepChar + Path.GetRelativePath(RefPath, i));
                                 codeFiles.AddRange(files);
                             }
                             catch (Exception ex) { Console.WriteLine(ex.Message); }
@@ -516,6 +517,7 @@ namespace BFlatA
             Console.WriteLine("  <csproj file>".PadRight(COL_WIDTH) + "\tThe first existing file is parsed, other files will be passed to bflat.");
             Console.WriteLine("\r\nOptions:");
             Console.WriteLine("  -pr|--packageroot:<path to package storage>".PadRight(COL_WIDTH) + "\teg.C:\\Users\\%username%\\.nuget\\packages or $HOME/.nuget/packages .");
+            Console.WriteLine("  -rp|--refpath:<any path to be related>".PadRight(COL_WIDTH) + "\ta reference path to generate path for files in the building script, can be optimized to reduce path lengths.Default is '.' (current dir).");
             Console.WriteLine("  -fx|--framework:<moniker>".PadRight(COL_WIDTH) + "\tthe TFM(Target Framework Moniker),such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.");
             Console.WriteLine("  -bm|--buildmode:<flat|tree>".PadRight(COL_WIDTH) + "\tflat=flatten reference project trees to one and build;tree=build each project alone and reference'em accordingly with -r option.");
             Console.WriteLine("  -sm|--scriptmode:<cmd|sh>".PadRight(COL_WIDTH) + "\tWindows Batch file(.cmd) or Linux Shell Script(.sh) file.");
@@ -531,7 +533,7 @@ namespace BFlatA
 
         public static int[] Ver2IntArray(string verStr) => verStr.Split('.').Select(i => int.TryParse(i, out int n) ? n : 0).ToArray();
 
-        public static string WriteScript(ScriptType scriptType, string packageRoot, string projectName, string script)
+        public static string WriteScript(ScriptType scriptType, string packageRoot, string projectName, string script, string buildPath = ".")
         {
             if (scriptType != ScriptType.None)
             {
@@ -543,11 +545,12 @@ namespace BFlatA
                 if (scriptType == ScriptType.SH)
                 {
                     script = script.Replace('^', '\\');
-                    script = "#!/bin/sh\n" + $"PR={packageRoot}\n" + script;
+                    script = "#!/bin/sh\n" + $"RP={RefPath}\n" + $"PR={packageRoot}\n" + script;
                 }
                 else
                 {
                     script = $"@SET PR={packageRoot}\r\n" + script;
+                    script = $"@SET RP={RefPath}\r\n" + script;
                 }
 
                 try
@@ -642,6 +645,7 @@ namespace BFlatA
                         restParams = RemoveArg(restParams, a);
                     }
                     else if (tryGetArg(a, "-pr", "--packageroot", out string pr)) packageRoot = pr;
+                    else if (tryGetArg(a, "-rp", "--refpath", out string rp) && Directory.Exists(rp)) RefPath = Path.GetFullPath(rp);
                     else if (tryGetArg(a, "-fx", "--framework", out string fx)) targetFx = fx;
                     else if (tryGetArg(a, "-sm", "--scriptmode", out string sm)) scriptType = ParseScriptType(sm);
                     else if (tryGetArg(a, "-bm", "--buildmode", out string bm)) buildMode = ParseBuildMode(bm);
