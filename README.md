@@ -55,7 +55,7 @@ but not all lib starts with "System." shall be excluded, such as System.CodDom.d
 
 [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) is a simple C# project with one Project Reference and one Nuget Package reference, and is minimum for demonstrating how BFlata works with BFlat.
 
-> Note:It is important to disable `<ImplicitUsings>` in .csproject file,
+> Note:It is important to disable `<ImplicitUsings>` in .csproj file,
 > and make sure all necessary namespaces are imported, especially `using
 > System;` if you are building with `--stdlib Dotnet` option of bflat.
 
