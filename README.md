@@ -45,8 +45,7 @@ of course BFlat is prefered to build the program entirely to native code(without
 > Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' and
 > 'System.Security.Cryptography, Version=7.0.0.0, Culture=neutral,
 > PublicKeyToken=b03f5f7f11d50a3a'
-
-This problem would possibly be either solved in the future by providing an exclusion file or by parsing the output of BFlat.
+This problem would possibly be solved in the future either by providing an exclusion file or by parsing the output of BFlat.
 	
 - Parsing resources in .resx file is not implemented yet, for lacking of knowledge of how BFlat handles resource files described in .resx file.
 
