@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -41,12 +42,12 @@ namespace BFlatA
     {
         public const char ARG_EVALUATION_CHAR = ':';
         public const int COL_WIDTH = 40;
+        public const string COMPILER = "bflat";
         public static readonly string[] IGNORED_SUBFOLDER_NAMES = { "bin", "obj" };
         public static readonly bool IsLinux = Path.DirectorySeparatorChar == '/';
         public static readonly XNamespace XSD_NUGETSPEC = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
         public static string[] AllLibPaths = Array.Empty<string>();
         public static List<string> ParsedProjectPaths = new();
-
         public static bool UseBuild = false;
         public static char PathSepChar { get; set; } = Path.DirectorySeparatorChar;
         public static string WorkingPath { get; set; } = Directory.GetCurrentDirectory();
@@ -66,7 +67,7 @@ namespace BFlatA
 
             if (buildMode == BuildMode.Tree)
             {
-                cmd.Append("bflat build ");
+                cmd.Append(COMPILER + " build ");
                 Console.WriteLine();
 
                 if (outputType != "Exe" && outputType != "WinExe") cmd.Append($"-o {projectName}.dll ");
@@ -118,8 +119,6 @@ namespace BFlatA
             ScriptType.SH when !useConcactor => "\n",
             _ => " "
         };
-
-        public static int[] Ver2IntArray(string verStr) => verStr.Split('.').Select(i => int.TryParse(i, out int n) ? n : 0).ToArray();
 
         public static List<string> MatchPackages(string[] allLibPaths,
                                                      Dictionary<string, string> packageReferences,
@@ -381,7 +380,7 @@ namespace BFlatA
                                     myScript = GenerateCmd(projectName, restParams, codeBook, libBook, resBook, ScriptType.None, buildMode, outputType);
                                     myScript += refLocalProjects;
                                     Console.WriteLine($"Building:{projectName}...");
-                                    build(myScript);
+                                    build(myScript.Replace("@", packageRoot));
                                 }
                                 else
                                 {
@@ -503,7 +502,7 @@ namespace BFlatA
         public static void ShowHelp()
         {
             Console.WriteLine("  Usage: bflata [build] <csprojectfile> [options]\r\n");
-            Console.WriteLine("  build".PadRight(COL_WIDTH) + "\tBuild with BFlat in %Path%, if present,ignores -sm arg; if omitted,generate build script only while -bm arg still effective.");
+            Console.WriteLine("  [build]".PadRight(COL_WIDTH) + "\tBuild with BFlat in %Path%, if present,ignores -sm arg; if omitted,generate build script only while -bm arg still effective.");
             Console.WriteLine("  <csprojectfile>".PadRight(COL_WIDTH) + "\tOnly one project is allowed here, other files will be passed to bflat.");
             Console.WriteLine("\r\nOptions:");
             Console.WriteLine("  -pr|--packageroot:<path to package storage>".PadRight(COL_WIDTH) + "\teg.C:\\Users\\%username%\\.nuget\\packages or $HOME/.nuget/packages .");
@@ -512,23 +511,64 @@ namespace BFlatA
             Console.WriteLine("  -sm|--scriptmode:<cmd|sh>".PadRight(COL_WIDTH) + "\tWindows Batch file(.cmd) or Linux .sh file.");
             Console.WriteLine("  -t|--target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + "\tBuild Target, this arg will also be passed to BFlat.");
             Console.WriteLine("\r\nNote:");
-            Console.WriteLine("  Any other args will be passed 'as is' to bflat.");
-            Console.WriteLine("  BflatA uses '-arg:value' style only, '-arg value' is not supported, though args passing to bflat are not subject to this rule.");
+            Console.WriteLine("  Any other args will be passed 'as is' to BFlat.");
+            Console.WriteLine("  BFlatA uses '-arg:value' style only, '-arg value' is not supported, though args passing to bflat are not subject to this rule.");
             Console.WriteLine("  Only the first existing file would be processed as .csproj file.");
             Console.WriteLine("\r\nExamples:");
             Console.WriteLine("  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx=net7.0 -sm:bat -bm:tree  <- only generate BAT script which builds project tree orderly.");
             Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -sm:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.");
         }
 
+        public static int[] Ver2IntArray(string verStr) => verStr.Split('.').Select(i => int.TryParse(i, out int n) ? n : 0).ToArray();
+
+        public static string WriteScript(ScriptType scriptType, string packageRoot, string projectName, string script)
+        {
+            if (scriptType != ScriptType.None)
+            {
+                Console.WriteLine($"Scripting {projectName}...");
+
+                var targetPathSepChar = GetPathSepChar(scriptType);
+                if (Path.DirectorySeparatorChar != targetPathSepChar) script = script.Replace(Path.DirectorySeparatorChar, targetPathSepChar);
+
+                if (scriptType == ScriptType.SH)
+                {
+                    script = script.Replace('^', '\\');
+                    script = "#!/bin/sh\n" + $"PR={packageRoot}\n" + script;
+                }
+                else
+                {
+                    script = $"SET PR={packageRoot}\r\n@" + script;
+                }
+
+                try
+                {
+                    var buf = Encoding.ASCII.GetBytes(script.ToString());
+                    using var st = File.Create(getBuildScriptFileName(scriptType));
+                    st.Write(buf);
+
+                    Console.WriteLine($"Script sucessfully written!");
+                }
+                catch (Exception e) { Console.WriteLine(e.Message); }
+            }
+
+            return script;
+        }
+
         private static string AppendScriptBlock(string script, string myScript, string lineFeed, ScriptType scriptType)
-                                => script + (scriptType == ScriptType.None ? " " : (script == null || script.EndsWith("\n") ? "" : lineFeed + lineFeed)) + myScript;
+                                        => script + (scriptType == ScriptType.None ? " " : (script == null || script.EndsWith("\n") ? "" : lineFeed + lineFeed)) + myScript;
 
         private static void build(string myScript)
         {
             Console.WriteLine($"Executing building script...");
             try
             {
-                Process.Start(myScript);
+                if (myScript.StartsWith(COMPILER))
+                {
+                    var paths = Environment.GetEnvironmentVariable("path").Split(IsLinux ? ':' : ';');
+                    var compilerPath = paths.FirstOrDefault(i => File.Exists(i + PathSepChar + (IsLinux ? COMPILER : COMPILER + ".exe")));
+                    Process.Start(compilerPath + PathSepChar + COMPILER, myScript.Replace(COMPILER, ""));
+                }
+                else Process.Start(myScript);
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
         }
@@ -556,7 +596,7 @@ namespace BFlatA
             string projectFile = null, packageRoot = null, targetFx = null, outputType = "Exe";
             BuildMode buildMode = BuildMode.None;
 
-            Console.WriteLine($"BFlatA V1.0.0\r\nDescription:\r\n  A building script generator or wrapper for recusively building .csproj file with depending Nuget packages & embedded resources for BFlat, a native C# compiler(flattened.net).\r\n");
+            Console.WriteLine($"BFlatA V{Assembly.GetEntryAssembly().GetName().Version} (github.com/xiaoyuvax/bflata)\r\nDescription:\r\n  A building script generator or wrapper for recusively building .csproj file with depending Nuget packages & embedded resources for BFlat, a native C# compiler(flattened.net).\r\n");
 
             bool tryGetArg(string a, string shortName, string fullName, out string value)
             {
@@ -629,33 +669,7 @@ namespace BFlatA
                         script = GenerateCmd(projectName, restParams, codeBook, libBook, resBook, scriptType, BuildMode.Tree, outputType);
 
                     //Write to script file
-                    if (scriptType != ScriptType.None)
-                    {
-                        Console.WriteLine($"Scripting {projectName}...");
-
-                        var targetPathSepChar = GetPathSepChar(scriptType);
-                        if (Path.DirectorySeparatorChar != targetPathSepChar) script = script.Replace(Path.DirectorySeparatorChar, targetPathSepChar);
-
-                        if (scriptType == ScriptType.SH)
-                        {
-                            script = script.Replace('^', '\\');
-                            script = "#!/bin/sh\n" + $"PR={packageRoot}\n" + script;
-                        }
-                        else
-                        {
-                            script = $"SET PR={packageRoot}\r\n@" + script;
-                        }
-
-                        try
-                        {
-                            var buf = Encoding.ASCII.GetBytes(script.ToString());
-                            using var st = File.Create(getBuildScriptFileName(scriptType));
-                            st.Write(buf);
-
-                            Console.WriteLine($"Script sucessfully written!");
-                        }
-                        catch (Exception e) { Console.WriteLine(e.Message); }
-                    }
+                    WriteScript(scriptType, packageRoot, projectName, script);
 
                     if (UseBuild && buildMode == BuildMode.Flat)
                     {
