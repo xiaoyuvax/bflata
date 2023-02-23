@@ -52,7 +52,8 @@ but not all lib starts with "System." shall be excluded, such as System.CodDom.d
 - Parsing resources in .resx file is not implemented yet, for lacking of knowledge of how BFlat handles resources described in .resx file.
 ## Demo project
 
-[ObjectPoolReuseCaseDemo](Url=https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) is a simple C# project with one Project Reference and one Nuget Package reference, and is minimum for demonstrating how BFlata works with BFlat.
+[ObjectPoolReuseCaseDemo](Url=https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
+is a simple C# project with one Project Reference and one Nuget Package reference, and is minimum for demonstrating how BFlata works with BFlat.
 
 Following command build the project in default Flat mode(i.e. code files and references of underlying projects are to be merged and built together), and a build.cmd script file will also be genreated (always for Flat mode, for it's a workaround to solve arguments too long problem) .
 
