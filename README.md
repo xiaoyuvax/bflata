@@ -59,7 +59,7 @@ but not all lib starts with "System." shall be excluded, such as System.CodDom.d
 > and make sure all necessary namespaces are imported, especially `using
 > System;` if you are building with `--stdlib Dotnet` option of bflat.
 
-Following command build the project in default Flat mode(i.e. code files and references of underlying projects are to be merged and built together), and a build.cmd script file will also be genreated (always for Flat mode, for it's a workaround to solve arguments too long problem) .
+Following command build the project in default Flat mode(i.e. code files and references of underlying projects are to be merged and built together), and a 'build.cmd' script file will also be genreated (always for Flat mode, for it's a workaround to solve the 'arguments too long' problem) .
 
 	bflata build ObjectPoolDemo.csproj -pr:C:\Users\%username%\.nuget\packages -fx:net7.0 --stdlib Dotnet
 
