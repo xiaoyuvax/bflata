@@ -38,7 +38,7 @@ namespace BFlatA
         public static IEnumerable<XElement> OfRemove(this IEnumerable<XElement> r, string elementName) => r.Where(i => i.Name.LocalName.ToLower() == elementName.ToLower() && i.Attribute("Remove") != null);
     }
 
-    internal static class Program
+    internal static class BFlatA
     {
         public const char ARG_EVALUATION_CHAR = ':';
         public const int COL_WIDTH = 40;
@@ -52,7 +52,7 @@ namespace BFlatA
         public static char PathSepChar { get; set; } = Path.DirectorySeparatorChar;
         public static string WorkingPath { get; set; } = Directory.GetCurrentDirectory();
 
-        public static string GenerateCmd(string projectName,
+        public static string GenerateScript(string projectName,
                                          IEnumerable<string> restParams,
                                          IEnumerable<string> codeFileList,
                                          IEnumerable<string> libBook,
@@ -67,7 +67,7 @@ namespace BFlatA
 
             if (buildMode == BuildMode.Tree)
             {
-                cmd.Append(COMPILER + " build ");
+                cmd.Append((IsLinux ? "" : "@") + COMPILER + " build ");
                 Console.WriteLine();
 
                 if (outputType != "Exe" && outputType != "WinExe") cmd.Append($"-o {projectName}.dll ");
@@ -174,7 +174,9 @@ namespace BFlatA
                                         }
                                 }
                                 return false;
-                            }).Where(i => !i.Contains(PathSepChar + "runtime.")); //Runtime libs must be excluded;
+                            }).Where(i => !i.Contains(PathSepChar + "runtime.")) //Runtime libs must be excluded;
+                            .Where(i => !i.Contains(PathSepChar + "system.")) //Runtime libs must be excluded;
+                            ;
                         }
 
                         //deduplication of libs references (in Flat mode, dependency may not be compatible among projects, the top version will be kept)
@@ -182,7 +184,11 @@ namespace BFlatA
                         if (matchedLibPaths != null) foreach (var d in matchedLibPaths)
                             {
                                 libPath = d + PathSepChar + package.Key + ".dll";
-                                if (File.Exists(libPath))
+
+                                //get case-sensitive file path
+                                libPath = Directory.GetFiles(d).FirstOrDefault(i => i.ToLower() == libPath.ToLower());
+
+                                if (libPath != null)
                                 {
                                     libPath = libPath.Replace(packageRoot, "@");
                                     //Package name might be case-insensitive in csproject file, while path will be case-sensitive on Linux.
@@ -377,14 +383,14 @@ namespace BFlatA
                                 string myScript = "";
                                 if (UseBuild && buildMode == BuildMode.Tree)
                                 {
-                                    myScript = GenerateCmd(projectName, restParams, codeBook, libBook, resBook, ScriptType.None, buildMode, outputType);
+                                    myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, ScriptType.None, buildMode, outputType);
                                     myScript += refLocalProjects;
                                     Console.WriteLine($"Building:{projectName}...");
                                     build(myScript.Replace("@", packageRoot));
                                 }
                                 else
                                 {
-                                    myScript = GenerateCmd(projectName, restParams, codeBook, libBook, resBook, scriptType, buildMode, outputType);
+                                    myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, scriptType, buildMode, outputType);
                                     myScript += refLocalProjects;
                                     Console.WriteLine($"Appending Script:{projectName}...");
                                     script = AppendScriptBlock(script, myScript, lineFeed, scriptType);
@@ -537,7 +543,7 @@ namespace BFlatA
                 }
                 else
                 {
-                    script = $"SET PR={packageRoot}\r\n@" + script;
+                    script = $"@SET PR={packageRoot}\r\n" + script;
                 }
 
                 try
@@ -666,7 +672,7 @@ namespace BFlatA
                 {
                     //overwrite Hierachy script, and explicitly specify Hierachy build, to get bundled executable script.
                     if (buildMode != BuildMode.Tree)
-                        script = GenerateCmd(projectName, restParams, codeBook, libBook, resBook, scriptType, BuildMode.Tree, outputType);
+                        script = GenerateScript(projectName, restParams, codeBook, libBook, resBook, scriptType, BuildMode.Tree, outputType);
 
                     //Write to script file
                     WriteScript(scriptType, packageRoot, projectName, script);
@@ -674,12 +680,9 @@ namespace BFlatA
                     if (UseBuild && buildMode == BuildMode.Flat)
                     {
                         ////Start Building
-                        Console.WriteLine($"Building Bundle:{projectName}...");
+                        Console.WriteLine($"Building in Flat mode:{projectName}...");
                         build(IsLinux ? "./build.sh" : "./build.cmd"); //WORKAROUND:args r too long for Flat Mode only.
-                        Console.WriteLine($"Building:{projectName}...");
                     }
-
-                    Console.WriteLine($"Project built successfully!!");
                 }
                 else
                 {
