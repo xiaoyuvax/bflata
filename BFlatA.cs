@@ -5,11 +5,12 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
 
 #if BFLAT
-[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.2")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.3")]
 #endif
 
 namespace BFlatA
@@ -53,10 +54,17 @@ namespace BFlatA
         public static readonly char PathSepChar = Path.DirectorySeparatorChar;
         public static readonly string WorkingPath = Directory.GetCurrentDirectory();
         public static readonly XNamespace XSD_NUGETSPEC = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
-        public static string[] AllLibPaths = Array.Empty<string>();
+        public static BuildMode BuildMode = BuildMode.None;
+        public static bool DepositLib = false;
+        public static string[] LibCache = Array.Empty<string>();
+        public static string OutputType = "Exe";
+        public static string PackageRoot = null;
         public static List<string> ParsedProjectPaths = new();
+        public static string ProjectFile = null;
+        public static string RefPath = Directory.GetCurrentDirectory();
+        public static ScriptType ScriptType = ScriptType.RSP;
+        public static string TargetFx = null;
         public static bool UseBuild = false;
-        public static string RefPath { get; set; } = Directory.GetCurrentDirectory();
 
         public static string GenerateScript(string projectName,
                                          IEnumerable<string> restParams,
@@ -80,7 +88,6 @@ namespace BFlatA
                     cmd.Append((IsLinux ? "" : "@") + COMPILER + " build ");
                     Console.WriteLine();
                 }
-                else Console.WriteLine("Warning: generating response file under TREE mode is not meaningful!");
 
                 if (outputType != "Exe" && outputType != "WinExe")
                 {
@@ -260,9 +267,9 @@ namespace BFlatA
                                 if (myDependencies?.Any() == true) libBook = MatchPackages(allLibPaths, myDependencies, packageRoot, new[] { actualTarget }, libBook); //Append Nuget dependencies to libBook
                                 break;
                             }
-                            else Console.WriteLine($"Warning: nuspecFile not exists, packages dependencies cannot be determined!! {nuspecPath}");
+                            else Console.WriteLine($"Warning:nuspecFile not exists, packages dependencies cannot be determined!! {nuspecPath}");
                         }
-                        else Console.WriteLine($"Warning: Package not found!! {packageID}");
+                        else Console.WriteLine($"Warning:package not found!! {packageID}");
 
                         //If any dependency found for any target, stop matching other targets(the other targets usually r netstandard).
                         if (gotit) break;
@@ -371,7 +378,10 @@ namespace BFlatA
 
                             //Match lib from cache (TreeMode: each project uses its own Libs, so don't pass in libBook)
                             if (buildMode == BuildMode.Tree)
-                                libBook = MatchPackages(allLibPaths, packageReferences, packageRoot, targets);
+                            {
+                                if (DepositLib) libBook = MatchPackages(allLibPaths, packageReferences, packageRoot, targets, libBook);
+                                else libBook = MatchPackages(allLibPaths, packageReferences, packageRoot, targets);
+                            }
                             else
                                 libBook = MatchPackages(allLibPaths, packageReferences, packageRoot, targets, libBook);
 
@@ -387,9 +397,46 @@ namespace BFlatA
                                 string innerScript = "", innerProjectName = "", innerOutputType = "";
 
                                 if (buildMode == BuildMode.Tree)
-                                    err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restParams, buildMode, scriptType, out innerProjectName, out innerOutputType, out innerScript, isDependency: true);
+                                {
+                                    if (DepositLib) err = ParseProject(refProjectPath,
+                                                                       allLibPaths,
+                                                                       target,
+                                                                       packageRoot,
+                                                                       restParams,
+                                                                       buildMode,
+                                                                       scriptType,
+                                                                       out innerProjectName,
+                                                                       out innerOutputType,
+                                                                       out innerScript,
+                                                                       libBook: libBook,
+                                                                       isDependency: true);
+                                    else err = ParseProject(refProjectPath,
+                                                            allLibPaths,
+                                                            target,
+                                                            packageRoot,
+                                                            restParams,
+                                                            buildMode,
+                                                            scriptType,
+                                                            out innerProjectName,
+                                                            out innerOutputType,
+                                                            out innerScript,
+                                                            isDependency: true);
+                                }
                                 else
-                                    err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restParams, buildMode, scriptType, out innerProjectName, out innerOutputType, out innerScript, codeBook, libBook, resBook, true);
+                                    err = ParseProject(refProjectPath,
+                                                       allLibPaths,
+                                                       target,
+                                                       packageRoot,
+                                                       restParams,
+                                                       buildMode,
+                                                       scriptType,
+                                                       out innerProjectName,
+                                                       out innerOutputType,
+                                                       out innerScript,
+                                                       codeBook,
+                                                       libBook,
+                                                       resBook,
+                                                       true);
 
                                 if (err >= 0 && buildMode == BuildMode.Tree)  // <0 fatal, >=0 success
                                 {
@@ -418,6 +465,9 @@ namespace BFlatA
                                         else build("bflat build @build.rsp");
                                     }
                                     else build(myScript.Replace("@", packageRoot));
+
+                                    var outputFile = projectName + ".dll";
+                                    SpinWait.SpinUntil(() => File.Exists(outputFile), 20000); //waiting for compiler
                                 }
                                 else
                                 {
@@ -428,7 +478,7 @@ namespace BFlatA
                                 }
                             }
                         }
-                        else Console.WriteLine($"Warnning!!!Project properties are not compatible with the target:{target}, {projectFile}!!! ");
+                        else Console.WriteLine($"Warnning:Project properties are not compatible with the target:{target}, {projectFile}!!! ");
 
                         ParsedProjectPaths.Add(projectFile);
 
@@ -440,7 +490,7 @@ namespace BFlatA
                             int counter = 0;
                             foreach (var i in nodes)
                             {
-                                IEnumerable<string> items = getAbsPaths(i.Attribute(action)?.Value, projectPath);
+                                IEnumerable<string> items = getAbsPaths(ToSysPathSep(i.Attribute(action)?.Value), projectPath);
                                 //relative paths used by script is relative to WorkingPath
                                 if (!useAbsolutePath) items = items.Select(i => "@" + PathSepChar + Path.GetRelativePath(RefPath, i));
 
@@ -456,7 +506,7 @@ namespace BFlatA
                         {
                             if (string.IsNullOrEmpty(path)) return Array.Empty<string>();
 
-                            string fullPath = Path.GetFullPath(projectPath + PathSepChar + path, basePath);
+                            string fullPath = Path.GetFullPath(projectPath + PathSepChar + ToSysPathSep(path), basePath);
                             string pattern = Path.GetFileName(fullPath);
                             if (pattern.Contains('*'))
                             {
@@ -465,6 +515,7 @@ namespace BFlatA
                                 try
                                 {
                                     fileLst = Directory.GetFiles(fullPath, pattern);
+                                    foreach (var i in fileLst) Console.Write(i); //Debug:
                                 }
                                 catch (Exception ex) { Console.WriteLine(ex.Message); }
                                 return fileLst;
@@ -477,7 +528,7 @@ namespace BFlatA
                             List<string> codeFiles = new();
                             try
                             {
-                                var files = Directory.GetFiles(path, "*.cs").Except(removeLst).Select(i => "@" + PathSepChar + Path.GetRelativePath(RefPath, i));
+                                var files = Directory.GetFiles(ToSysPathSep(path), "*.cs").Except(removeLst).Select(i => "@" + PathSepChar + Path.GetRelativePath(RefPath, i));
                                 codeFiles.AddRange(files);
                             }
                             catch (Exception ex) { Console.WriteLine(ex.Message); }
@@ -493,7 +544,7 @@ namespace BFlatA
             }
             else
             {
-                Console.WriteLine($"Warning: Project already parsed, ignoring it..." + projectFile);
+                Console.WriteLine($"Warning:project already parsed, ignoring it..." + projectFile);
             }
 
             return 0;
@@ -516,7 +567,7 @@ namespace BFlatA
             var libPath = PathSepChar + "lib" + PathSepChar;
             int pathCount = 0, libCount = 0;
             var lastCursorPost = Console.GetCursorPosition();
-            if (!string.IsNullOrEmpty(packageRoot)) AllLibPaths = Directory.GetDirectories(packageRoot, "*", SearchOption.AllDirectories)
+            if (!string.IsNullOrEmpty(packageRoot)) LibCache = Directory.GetDirectories(packageRoot, "*", SearchOption.AllDirectories)
                .Where(i =>
                {
                    pathCount++;
@@ -531,7 +582,7 @@ namespace BFlatA
                    else return false;
                }).OrderByDescending(i => i).ToArray();
 
-            Console.WriteLine($"{NL}Found {AllLibPaths.Length} nuget packages!{NL}");
+            Console.WriteLine($"{NL}Found {LibCache.Length} nuget packages!{NL}");
         }
 
         public static string[] RemoveArg(string[] restParams, string a) => restParams.Except(new[] { a }).ToArray();
@@ -547,6 +598,7 @@ namespace BFlatA
             Console.WriteLine("  -fx|--framework:<moniker>".PadRight(COL_WIDTH) + "\tThe TFM(Target Framework Moniker) for selection of dependencies, such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.");
             Console.WriteLine("  -bm|--buildmode:<flat|tree>".PadRight(COL_WIDTH) + "\tflat=flatten reference project trees to one for building;tree=build each project alone and reference'em accordingly with -r option.");
             Console.WriteLine("  -sm|--scriptmode:<rsp|bat|sh>".PadRight(COL_WIDTH) + "\tResponse File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.");
+            Console.WriteLine("  -dd|--depdep".PadRight(COL_WIDTH) + "\tDeposit Dependencies mode, valid with -bm:tree mode, where dependencies of each level will be deposited and served to all parental levels including the root project as to fulfill any possible dependency refs.");
             Console.WriteLine("  -t|--target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + "\tBuild Target, this arg will also be passed to BFlat.");
             Console.WriteLine($"{NL}Note:");
             Console.WriteLine("  Any other args will be passed 'as is' to BFlat.");
@@ -558,10 +610,21 @@ namespace BFlatA
             Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -sm:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.");
         }
 
+        public static string ToSysPathSep(string path)
+        {
+            if (!string.IsNullOrEmpty(path))
+            {
+                if (path.Contains('/') && PathSepChar != '/') path = path.Replace('/', PathSepChar);
+                else if (path.Contains('\\') && PathSepChar != '\\') path = path.Replace('\\', PathSepChar);
+            }
+            return path;
+        }
+
         public static int[] Ver2IntArray(string verStr) => verStr.Split('.').Select(i => int.TryParse(i, out int n) ? n : 0).ToArray();
 
-        public static string WriteScript(ScriptType scriptType, string packageRoot, string projectName, string script, string buildPath = ".")
+        public static void WriteScript(ScriptType scriptType, string packageRoot, string projectName, string script, string buildPath = ".")
         {
+            if (string.IsNullOrEmpty(script)) return;
             Console.WriteLine($"Scripting {projectName}...");
 
             // If target PathSepChar is not the same with the generated script, replace'em all.
@@ -591,8 +654,7 @@ namespace BFlatA
                 Console.WriteLine($"Script successfully written!{NL}");
             }
             catch (Exception e) { Console.WriteLine(e.Message); }
-
-            return script;
+            return;
         }
 
         private static string AppendScriptBlock(string script, string myScript, ScriptType scriptType)
@@ -625,18 +687,15 @@ namespace BFlatA
         private static char GetPathSepChar(ScriptType scriptType) => scriptType switch
         {
             ScriptType.SH => '/',
-            _ => '\\',
+            ScriptType.BAT => '\\',
+            _ => PathSepChar,
         };
 
         private static int Main(string[] args)
         {
             string[] restParams;
-            ScriptType scriptType = ScriptType.RSP;
 
             List<string> codeBook = new(), libBook = new(), resBook = new();
-
-            string projectFile = null, packageRoot = null, targetFx = null, outputType = "Exe";
-            BuildMode buildMode = BuildMode.None;
 
             Console.WriteLine($"BFlatA V{Assembly.GetEntryAssembly().GetName().Version} (github.com/xiaoyuvax/bflata){NL}Description:{NL}  A building script generator or wrapper for recusively building .csproj file with depending Nuget packages & embedded resources for BFlat, a native C# compiler(flattened.net).{NL}");
 
@@ -673,15 +732,32 @@ namespace BFlatA
                         UseBuild = true;
                         restParams = RemoveArg(restParams, a);
                     }
-                    else if (tryGetArg(a, "-pr", "--packageroot", out string pr)) packageRoot = pr;
-                    else if (tryGetArg(a, "-rp", "--refpath", out string rp) && Directory.Exists(rp)) RefPath = Path.GetFullPath(rp);
-                    else if (tryGetArg(a, "-fx", "--framework", out string fx)) targetFx = fx;
-                    else if (tryGetArg(a, "-sm", "--scriptmode", out string sm)) scriptType = ParseScriptType(sm);
-                    else if (tryGetArg(a, "-bm", "--buildmode", out string bm)) buildMode = ParseBuildMode(bm);
-                    else if (tryGetArg(a, "-t", "--target", out string t)) outputType = t;
-                    else if (string.IsNullOrEmpty(projectFile) && !a.StartsWith("-") && a.ToLower() != "build" && File.Exists(a))
+                    else if (tryGetArg(a, "-pr", "--packageroot", out string pr))
+                        if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr);
+                        else
+                        {
+                            Console.WriteLine($"Error:PacakgeRoot does not exist or is invalid!");
+                            return -1;
+                        }
+                    else if (tryGetArg(a, "-rp", "--refpath", out string rp))
+                        if (Directory.Exists(rp)) RefPath = Path.GetFullPath(rp);
+                        else
+                        {
+                            Console.WriteLine($"Error:RefPath does not exist or is invalid!");
+                            return -1;
+                        }
+                    else if (tryGetArg(a, "-fx", "--framework", out string fx)) TargetFx = fx;
+                    else if (tryGetArg(a, "-sm", "--scriptmode", out string sm)) ScriptType = ParseScriptType(sm);
+                    else if (tryGetArg(a, "-bm", "--buildmode", out string bm)) BuildMode = ParseBuildMode(bm);
+                    else if (tryGetArg(a, "-t", "--target", out string t)) OutputType = t;
+                    else if (a.ToLower() == "-dd" || a.ToLower() == "--depdep")
                     {
-                        projectFile = a;
+                        DepositLib = true;
+                        restParams = RemoveArg(restParams, a);
+                    }
+                    else if (string.IsNullOrEmpty(ProjectFile) && !a.StartsWith("-") && a.ToLower() != "build" && File.Exists(a))
+                    {
+                        ProjectFile = a;
                         restParams = RemoveArg(restParams, a);
                     }
                 }
@@ -689,34 +765,38 @@ namespace BFlatA
             //init default values
             if (UseBuild)
             {
-                scriptType = ScriptType.RSP;  //default ScriptType for building and -sm option is ignored under Building mode.
-                if (buildMode == BuildMode.None) buildMode = BuildMode.Flat; //default BuildMode for Build option
+                ScriptType = ScriptType.RSP;  //default ScriptType for building and -sm option is ignored under Building mode.
+                if (BuildMode == BuildMode.None) BuildMode = BuildMode.Flat; //default BuildMode for Build option
             }
+            else if (BuildMode == BuildMode.Tree) Console.WriteLine("Warning: .rsp script generated under TREE mode is not buildable!");
 
-            if (string.IsNullOrEmpty(targetFx)) targetFx = "net7.0";
+            if (string.IsNullOrEmpty(TargetFx)) TargetFx = "net7.0";
 
-            if (!string.IsNullOrEmpty(projectFile))
+            if (!string.IsNullOrEmpty(ProjectFile))
             {
                 //Pre-caching nuget package "/lib/" paths
-                PreCacheLibs(packageRoot);
+                PreCacheLibs(PackageRoot);
 
                 //Parse project and all project references recursively.
-                var err = ParseProject(projectFile, AllLibPaths, targetFx, packageRoot, restParams, buildMode, scriptType, out string projectName, out _, out string script, codeBook, libBook, resBook);
+                var err = ParseProject(ProjectFile, LibCache, TargetFx, PackageRoot, restParams, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook);
 
                 if (err == 0)
                 {
                     //overwrite script under Flat Mode, and explicitly specify BuldMode.Tree as to generate the header part.
-                    if (buildMode != BuildMode.Tree)
-                        script = GenerateScript(projectName, restParams, codeBook, libBook, resBook, scriptType, BuildMode.Tree, packageRoot, outputType);
+                    if (BuildMode != BuildMode.Tree)
+                        script = GenerateScript(projectName, restParams, codeBook, libBook, resBook, ScriptType, BuildMode.Tree, PackageRoot, OutputType);
 
-                    //Write to script file
-                    WriteScript(scriptType, packageRoot, projectName, script);
-
-                    if (UseBuild && buildMode == BuildMode.Flat)
+                    if (!string.IsNullOrEmpty(script))
                     {
-                        ////Start Building
-                        Console.WriteLine($"Building in FLAT mode:{projectName}...");
-                        build(scriptType == ScriptType.RSP ? "bflat build @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd")); //WORKAROUND:args r too long for Flat Mode only.
+                        //Write to script file
+                        WriteScript(ScriptType, PackageRoot, projectName, script);
+
+                        if (UseBuild && BuildMode == BuildMode.Flat)
+                        {
+                            //Start Building
+                            Console.WriteLine($"Building in FLAT mode:{projectName}...");
+                            build(ScriptType == ScriptType.RSP ? "bflat build @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd")); //WORKAROUND:args r too long for Flat Mode only.
+                        }
                     }
                 }
                 else
@@ -727,7 +807,7 @@ namespace BFlatA
             }
             else
             {
-                Console.WriteLine($"Project file not specified!!");
+                Console.WriteLine($"Project file not specified!!{NL}");
                 Console.WriteLine($"use -? -h or --help for help and usage informatioon.");
                 return -0x01;
             }

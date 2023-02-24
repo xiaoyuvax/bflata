@@ -2,7 +2,7 @@
   "profiles": {
     "BFlatA": {
       "commandName": "Project",
-      "commandLineArgs": "build D:\\Repos\\LoraMonitor\\branches\\1.7-MemoryPack\\ObjectPoolDemo\\ObjectPoolDemo\\ObjectPoolDemo.csproj -pr:C:\\Users\\Administrator.sp\\.nuget\\packages -fx:net7.0 --stdlib Dotnet -bm:tree"
+      "commandLineArgs": "build D:\\Repos\\LoraMonitor\\branches\\1.7-MemoryPack\\ObjectPoolDemo\\ObjectPoolDemo\\ObjectPoolDemo.csproj -pr:C:\\Users\\Administrator.sp\\.nuget\\packages -fx:net7.0 --stdlib Dotnet -bm:tree -dd"
     }
   }
 }
