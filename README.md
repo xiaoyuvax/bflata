@@ -7,7 +7,7 @@ A wrapper/building script generator for recusively building .csproj file with:
  - Nuget package dependencies
  - Embedded resources  
 
-  for BFlat, a native C# compiler(flattened.net).
+  for BFlat, a native C# compiler([flattened.net](https://flattened.net)).
   
   This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
