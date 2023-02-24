@@ -2,27 +2,31 @@
 # BFlatA
 A building script generator or wrapper for recusively building .csproj file with depending Nuget packages &amp; embedded resources for BFlat, a native C# compiler ([github.com/bflattened/bflat](https://github.com/bflattened/bflat))
 
+Update 23-02-24: Response file(.rsp) support added, and 'arguments too long' problem solved. The .rsp script will be taken as default building script format of BFlatA. You can use the generated build.rsp file like `bflat @build.rsp` to build a FLATTENED project. 
+Note: a single .rsp file itself does not support building project Tree, use -sm:bat or -sm:sh to generate script that supports building project trees, or build through BFlatA directly instead(use `build` option).  
+
 This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 ##  Usage:
 
       Usage: bflata [build] <csproj file> [options]
     
-      [build]                                       Build with BFlat in %Path%; if omitted,generate building script only while -bm option still effective.
+      [build]                                       Build with BFlat in %Path%, with -sm option ignored(uses build.rsp always); If omitted, generate building script only with -bm option effective.
       <csproj file>                                 The first existing file is parsed, other files will be passed to bflat.
     
     Options:
       -pr|--packageroot:<path to package storage>   eg.C:\Users\%username%\.nuget\packages or $HOME/.nuget/packages .
-      -rp|--refpath:<any path to be related>        a reference path to generate path for files in the building script, can be optimized to reduce path lengths.Default is '.' (current dir).
-      -fx|--framework:<moniker>                     the TFM(Target Framework Moniker),such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.
-      -bm|--buildmode:<flat|tree>                   flat=flatten reference project trees to one and build;tree=build each project alone and reference'em accordingly with -r option.
-      -sm|--scriptmode:<cmd|sh>                     Windows Batch file(.cmd) or Linux Shell Script(.sh) file.
+      -rp|--refpath:<any path to be related>        A reference path to generate path for files in the building script, can be optimized to reduce path lengths.Default is '.' (current dir).
+      -fx|--framework:<moniker>                     The TFM(Target Framework Moniker) for selection of dependencies, such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.
+      -bm|--buildmode:<flat|tree>                   flat=flatten reference project trees to one for building;tree=build each project alone and reference'em accordingly with -r option.
+      -sm|--scriptmode:<rsp|bat|sh>                 Response File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.
       -t|--target:<Exe|Shared|WinExe>               Build Target, this arg will also be passed to BFlat.
     
     Note:
       Any other args will be passed 'as is' to BFlat.
       BFlatA uses '-arg:value' style only, '-arg value' is not supported, though args passing to bflat are not subject to this rule.
       Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.
+      The filenames for the building script are one of 'build.rsp,build.cmd,build.sh' and the .rsp file allows larger arguments and is prefered.
     
     Examples:
       bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -sm:bat -bm:tree  <- only generate BAT script which builds project tree orderly.
