@@ -2,7 +2,7 @@
 # BFlatA
 A building script generator or wrapper for recusively building .csproj file with depending Nuget packages &amp; embedded resources for BFlat, a native C# compiler ([github.com/bflattened/bflat](https://github.com/bflattened/bflat))
 
-Update 23-02-24: Response file(.rsp) support added, and 'arguments too long' problem solved. The .rsp script will be taken as default building script format of BFlatA. You can use the generated build.rsp file like `bflat @build.rsp` to build a FLATTENED project. 
+Update 23-02-24: Response file(.rsp) support added, and 'arguments too long' problem solved. The .rsp script will be taken as default building script format of BFlatA. You can use the generated build.rsp file like `bflat build @build.rsp` to build a FLATTENED project. 
 Note: a single .rsp file itself does not support building project Tree, use -sm:bat or -sm:sh to generate script that supports building project trees, or build through BFlatA directly instead(use `build` option).  
 
 This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
