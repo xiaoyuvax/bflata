@@ -462,6 +462,8 @@ namespace BFlatA
 
                                     if (scriptType == ScriptType.RSP)
                                     {
+
+
                                         WriteScript(scriptType, packageRoot, projectName, myScript);
                                         Console.WriteLine($"Building {(isDependency ? "dependency" : "root")}:{projectName}...");
                                         if (isDependency) build("bflat build-il @build.rsp");
@@ -469,7 +471,8 @@ namespace BFlatA
                                     }
                                     else build(myScript.Replace("@", packageRoot));
 
-                                    var outputFile = projectName + ".dll";
+
+                                    var outputFile = projectName + (isDependency ? ".dll" : (IsLinux ? "" : ".exe"));
 
                                     //Wait for compiling
                                     if (!SpinWait.SpinUntil(() => File.Exists(outputFile), 20000)) Console.WriteLine($"Error:building timeout!");
