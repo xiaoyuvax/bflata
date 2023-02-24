@@ -2,10 +2,14 @@
 
 # BFlatA
 A wrapper/building script generator for recusively building .csproj file with:
-    - Referenced projects
-    - Nuget package dependencies
-    - Embedded resources
+
+ - Referenced projects
+ - Nuget package dependencies
+ - Embedded resources  
+
   for BFlat, a native C# compiler(flattened.net).
+  
+  This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 Update 23-02-24: 
 - Response file(.rsp) support added, and 'arguments too long' problem solved. The .rsp script will be taken as default building script format of BFlatA. You can use the generated build.rsp file like `bflat build @build.rsp` to build a FLATTENED project. 
@@ -14,7 +18,7 @@ Note: a single .rsp file itself does not support building project Tree, use -sm:
 - A new `-dd` (Deposit Dependencies) option is introduced for compiling projects who uses references of child projects. dependencies will be added-up (deposited) along the hiearchy line and be accumulatively served to the parent project.
 
 
-This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
+
 
 ##  Usage:
 
