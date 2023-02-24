@@ -46,6 +46,7 @@ namespace BFlatA
     internal static class BFlatA
     {
         public const char ARG_EVALUATION_CHAR = ':';
+        public const string CACHE_FILENAME = "packages.cache";
         public const int COL_WIDTH = 40;
         public const string COMPILER = "bflat";
         public static readonly string[] IGNORED_SUBFOLDER_NAMES = { "bin", "obj" };
@@ -77,6 +78,8 @@ namespace BFlatA
                                          string outputType = "Exe"
                                          )
         {
+            Console.WriteLine($"{NL}Generating script:{projectName}");
+
             string lineFeed = GetLineFeed(scriptType);
 
             StringBuilder cmd = new();
@@ -104,7 +107,7 @@ namespace BFlatA
                 if (restParams.Any())
                 {
                     cmd.Append(string.Join(" ", restParams.Select(i => i.StartsWith('-') ? Environment.NewLine + i : i)).TrimStart(Environment.NewLine.ToCharArray()));  // arg per line for Response File
-                    Console.WriteLine($"Found {restParams.Count()} args to be passed to BFlat.");
+                    Console.WriteLine($"- Found {restParams.Count()} args to be passed to BFlat.");
                 }
             }
 
@@ -112,14 +115,14 @@ namespace BFlatA
             {
                 cmd.Append(lineFeed);
                 cmd.AppendJoin(lineFeed, codeFileList.Select(i => i.Replace("@", getRefPathMacro())).OrderBy(i => i));
-                Console.WriteLine($"Found {codeFileList.Count()} code files(*.cs)");
+                Console.WriteLine($"- Found {codeFileList.Count()} code files(*.cs)");
             }
 
             if (libBook.Any())
             {
                 cmd.Append(lineFeed + "-r ");
                 cmd.AppendJoin(lineFeed + "-r ", libBook.Select(i => i.Replace("@", getPackageRootMacro())).OrderBy(i => i));
-                Console.WriteLine($"Found {libBook.Count()} dependent libs(*.dll)");
+                Console.WriteLine($"- Found {libBook.Count()} dependent libs(*.dll)");
             }
 
             if (resPaths.Any())
@@ -457,17 +460,20 @@ namespace BFlatA
                                     myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, ScriptType.RSP, buildMode, packageRoot, outputType);
                                     myScript += refLocalProjects;
 
-                                    Console.WriteLine($"Building:{projectName}...");
                                     if (scriptType == ScriptType.RSP)
                                     {
                                         WriteScript(scriptType, packageRoot, projectName, myScript);
+                                        Console.WriteLine($"Building {(isDependency ? "dependency" : "root")}:{projectName}...");
                                         if (isDependency) build("bflat build-il @build.rsp");
                                         else build("bflat build @build.rsp");
                                     }
                                     else build(myScript.Replace("@", packageRoot));
 
                                     var outputFile = projectName + ".dll";
-                                    SpinWait.SpinUntil(() => File.Exists(outputFile), 20000); //waiting for compiler
+
+                                    //Wait for compiling
+                                    if (!SpinWait.SpinUntil(() => File.Exists(outputFile), 20000)) Console.WriteLine($"Error:building timeout!");
+                                    else Console.WriteLine("Script execution done!");
                                 }
                                 else
                                 {
@@ -582,7 +588,7 @@ namespace BFlatA
                    else return false;
                }).OrderByDescending(i => i).ToArray();
 
-            Console.WriteLine($"{NL}Found {LibCache.Length} nuget packages!{NL}");
+            Console.WriteLine($"{NL}Found {LibCache.Length} nuget packages!");
         }
 
         public static string[] RemoveArg(string[] restParams, string a) => restParams.Except(new[] { a }).ToArray();
@@ -590,14 +596,14 @@ namespace BFlatA
         public static void ShowHelp()
         {
             Console.WriteLine($"  Usage: bflata [build] <csproj file> [options]{NL}");
-            Console.WriteLine("  [build]".PadRight(COL_WIDTH) + "\tBuild with BFlat in %Path%, with -sm option ignored(uses build.rsp always); If omitted, generate building script only with -bm option effective.");
+            Console.WriteLine("  [build]".PadRight(COL_WIDTH) + "\tBuild with BFlat in %Path%, with -st option ignored(uses build.rsp always); If omitted, generate building script only with -bm option effective.");
             Console.WriteLine("  <csproj file>".PadRight(COL_WIDTH) + "\tThe first existing file is parsed, other files will be passed to bflat.");
             Console.WriteLine($"{NL}Options:");
             Console.WriteLine("  -pr|--packageroot:<path to package storage>".PadRight(COL_WIDTH) + "\teg.C:\\Users\\%username%\\.nuget\\packages or $HOME/.nuget/packages .");
             Console.WriteLine("  -rp|--refpath:<any path to be related>".PadRight(COL_WIDTH) + "\tA reference path to generate path for files in the building script, can be optimized to reduce path lengths.Default is '.' (current dir).");
             Console.WriteLine("  -fx|--framework:<moniker>".PadRight(COL_WIDTH) + "\tThe TFM(Target Framework Moniker) for selection of dependencies, such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.");
             Console.WriteLine("  -bm|--buildmode:<flat|tree>".PadRight(COL_WIDTH) + "\tflat=flatten reference project trees to one for building;tree=build each project alone and reference'em accordingly with -r option.");
-            Console.WriteLine("  -sm|--scriptmode:<rsp|bat|sh>".PadRight(COL_WIDTH) + "\tResponse File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.");
+            Console.WriteLine("  -st|--scripttype:<rsp|bat|sh>".PadRight(COL_WIDTH) + "\tResponse File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.");
             Console.WriteLine("  -dd|--depdep".PadRight(COL_WIDTH) + "\tDeposit Dependencies mode, valid with -bm:tree mode, where dependencies of each level will be deposited and served to all parental levels including the root project as to fulfill any possible dependency refs.");
             Console.WriteLine("  -t|--target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + "\tBuild Target, this arg will also be passed to BFlat.");
             Console.WriteLine($"{NL}Note:");
@@ -606,8 +612,8 @@ namespace BFlatA
             Console.WriteLine("  Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.");
             Console.WriteLine("  The filenames for the building script are one of 'build.rsp,build.cmd,build.sh' and the .rsp file allows larger arguments and is prefered.");
             Console.WriteLine($"{NL}Examples:");
-            Console.WriteLine("  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx=net7.0 -sm:bat -bm:tree  <- only generate BAT script which builds project tree orderly.");
-            Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -sm:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.");
+            Console.WriteLine("  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx=net7.0 -st:bat -bm:tree  <- only generate BAT script which builds project tree orderly.");
+            Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -st:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.");
         }
 
         public static string ToSysPathSep(string path)
@@ -622,10 +628,43 @@ namespace BFlatA
 
         public static int[] Ver2IntArray(string verStr) => verStr.Split('.').Select(i => int.TryParse(i, out int n) ? n : 0).ToArray();
 
+        public static void LoadCache()
+        {
+            var lastCursorPost = Console.GetCursorPosition();
+            List<string> cache = new List<string>();
+            int count = 0;
+            try
+            {
+                using var st = new StreamReader(File.OpenRead(CACHE_FILENAME));
+                while (!st.EndOfStream)
+                {
+                    count++;
+                    Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
+                    Console.Write($"Libs loaded:{count}");
+                    cache.Add(st.ReadLine());
+                }
+                LibCache = cache.ToArray();
+            }
+            catch (Exception e) { Console.WriteLine(e.Message); }
+            Console.WriteLine("");
+        }
+
+        public static void WriteCache()
+        {
+            try
+            {
+                using var st = File.Create(CACHE_FILENAME);
+                foreach (var l in LibCache) st.Write(Encoding.UTF8.GetBytes(l + NL));
+                st.Flush();
+                Console.WriteLine($"Package cache saved!");
+            }
+            catch (Exception e) { Console.WriteLine(e.Message); }
+        }
+
         public static void WriteScript(ScriptType scriptType, string packageRoot, string projectName, string script, string buildPath = ".")
         {
             if (string.IsNullOrEmpty(script)) return;
-            Console.WriteLine($"Scripting {projectName}...");
+            Console.WriteLine($"Writing script:{projectName}...");
 
             // If target PathSepChar is not the same with the generated script, replace'em all.
             var targetPathSepChar = GetPathSepChar(scriptType);
@@ -651,7 +690,7 @@ namespace BFlatA
                 using var st = File.Create(getBuildScriptFileName(scriptType));
                 st.Write(buf);
                 st.Flush();
-                Console.WriteLine($"Script successfully written!{NL}");
+                Console.WriteLine($"Script written!{NL}");
             }
             catch (Exception e) { Console.WriteLine(e.Message); }
             return;
@@ -662,7 +701,7 @@ namespace BFlatA
 
         private static void build(string myScript)
         {
-            Console.WriteLine($"Executing building script: {(myScript.Length > 22 ? myScript[..22] : myScript)}...");
+            Console.WriteLine($"- Executing building script: {(myScript.Length > 22 ? myScript[..22] : myScript)}...");
             try
             {
                 if (myScript.StartsWith(COMPILER))
@@ -679,9 +718,9 @@ namespace BFlatA
 
         private static string getBuildScriptFileName(ScriptType scriptType = ScriptType.RSP) => scriptType switch
         {
-            ScriptType.BAT => "Build.cmd",
-            ScriptType.SH => "Build.sh",
-            _ => "Build.rsp"
+            ScriptType.BAT => "build.cmd",
+            ScriptType.SH => "build.sh",
+            _ => "build.rsp"
         };
 
         private static char GetPathSepChar(ScriptType scriptType) => scriptType switch
@@ -697,7 +736,13 @@ namespace BFlatA
 
             List<string> codeBook = new(), libBook = new(), resBook = new();
 
-            Console.WriteLine($"BFlatA V{Assembly.GetEntryAssembly().GetName().Version} (github.com/xiaoyuvax/bflata){NL}Description:{NL}  A building script generator or wrapper for recusively building .csproj file with depending Nuget packages & embedded resources for BFlat, a native C# compiler(flattened.net).{NL}");
+            Console.WriteLine($"BFlatA V{Assembly.GetEntryAssembly().GetName().Version} (github.com/xiaoyuvax/bflata){NL}" +
+                $"Description:{NL}" +
+                $"  A wrapper/building script generator for recusively building .csproj file with:{NL}" +
+                $"    - Referenced projects{NL}" +
+                $"    - Nuget package dependencies{NL}" +
+                $"    - Embedded resources{NL}" +
+                $"  for BFlat, a native C# compiler(flattened.net).{NL}");
 
             bool tryGetArg(string a, string shortName, string fullName, out string value)
             {
@@ -747,7 +792,7 @@ namespace BFlatA
                             return -1;
                         }
                     else if (tryGetArg(a, "-fx", "--framework", out string fx)) TargetFx = fx;
-                    else if (tryGetArg(a, "-sm", "--scriptmode", out string sm)) ScriptType = ParseScriptType(sm);
+                    else if (tryGetArg(a, "-st", "--scripttype", out string sm)) ScriptType = ParseScriptType(sm);
                     else if (tryGetArg(a, "-bm", "--buildmode", out string bm)) BuildMode = ParseBuildMode(bm);
                     else if (tryGetArg(a, "-t", "--target", out string t)) OutputType = t;
                     else if (a.ToLower() == "-dd" || a.ToLower() == "--depdep")
@@ -765,19 +810,43 @@ namespace BFlatA
             //init default values
             if (UseBuild)
             {
-                ScriptType = ScriptType.RSP;  //default ScriptType for building and -sm option is ignored under Building mode.
+                ScriptType = ScriptType.RSP;  //default ScriptType for building and -st option is ignored under Building mode.
                 if (BuildMode == BuildMode.None) BuildMode = BuildMode.Flat; //default BuildMode for Build option
             }
             else if (BuildMode == BuildMode.Tree) Console.WriteLine("Warning: .rsp script generated under TREE mode is not buildable!");
 
             if (string.IsNullOrEmpty(TargetFx)) TargetFx = "net7.0";
 
+            //echo args.
+            Console.WriteLine($"{NL}--ARGS--------------------------------");
+            Console.WriteLine($"Build:{(UseBuild ? "On" : "Off")}");
+            Console.WriteLine($"DepositDep:{(UseBuild ? "On" : "Off")}");
+            Console.WriteLine($"BuildMode:{BuildMode}");
+            Console.WriteLine($"ScriptMode:{ScriptType}");
+            Console.WriteLine($"TargetFx:{TargetFx}");
+            Console.WriteLine($"PackageRoot:{PackageRoot}");
+            Console.WriteLine($"RefPath:{RefPath}");
+            Console.WriteLine($"Target:{OutputType}");
+            Console.WriteLine($"--------------------------------------{NL}");
+
             if (!string.IsNullOrEmpty(ProjectFile))
             {
+                Console.WriteLine($"--LIB CACHE---------------------------");
                 //Pre-caching nuget package "/lib/" paths
-                PreCacheLibs(PackageRoot);
+                if (File.Exists(CACHE_FILENAME))
+                {
+                    Console.WriteLine($"Package cache found!");
+                    LoadCache();
+                }
+                if (LibCache.Length == 0)
+                {
+                    PreCacheLibs(PackageRoot);
+                    if (LibCache.Length > 0) WriteCache();
+                }
+                Console.WriteLine($"--------------------------------------{NL}");
 
                 //Parse project and all project references recursively.
+                Console.WriteLine($"--GENERATING--------------------------");
                 var err = ParseProject(ProjectFile, LibCache, TargetFx, PackageRoot, restParams, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook);
 
                 if (err == 0)
@@ -804,6 +873,7 @@ namespace BFlatA
                     Console.WriteLine($"Error occurred during parsing project file(s)!!(0x{err.ToString("{0:X}")}");
                     return err;
                 }
+                Console.WriteLine($"--END---------------------------------");
             }
             else
             {
