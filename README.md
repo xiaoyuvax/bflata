@@ -7,7 +7,7 @@ A wrapper/building script generator for BFlat, a native C# compiler, for recusiv
  - Nuget package dependencies
  - Embedded resources  
 
-  You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net)).
+  You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net).
   
   This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
