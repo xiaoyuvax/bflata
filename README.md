@@ -9,15 +9,13 @@ A wrapper/building script generator for BFlat, a native C# compiler, for recusiv
 
   You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net).
   
-  This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
+  BFlat is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 Update 23-02-24: 
 - Response file(.rsp) support added, and 'arguments too long' problem solved. The .rsp script will be taken as default building script format of BFlatA. You can use the generated build.rsp file like `bflat build @build.rsp` to build a FLATTENED project. 
 Note: a single .rsp file itself does not support building project Tree, instead you may use `-st:bat` or `-st:sh` to generate script that supports building project trees, or build through BFlatA directly(with both `build` and `-bm:tree` option on).  
 - Paths cache of Nuget packages are now saved to packages.cache in the working path, and will be reused at the next run, as to improve performance.
 - A new `-dd` (Deposit Dependencies) option is introduced for compiling projects who uses references of child projects indirectly, and still offering certain extent of version consistency, where dependencies are added-up (deposited) along the hiearchy line and be accumulatively served to the parent project level by level (if any dependency version conflict upon merging with parent level, higher version will be retained, as to guarantee maximal version compatibility).
-
-
 
 
 ##  Usage:
