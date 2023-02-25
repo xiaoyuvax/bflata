@@ -1,13 +1,13 @@
 
 
 # BFlatA
-A wrapper/building script generator for recusively building .csproj file with:
+A wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
 
  - Referenced projects
  - Nuget package dependencies
  - Embedded resources  
 
-  for BFlat, a native C# compiler([flattened.net](https://flattened.net)).
+  You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net)).
   
   This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
