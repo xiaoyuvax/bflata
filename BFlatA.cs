@@ -58,6 +58,7 @@ namespace BFlatA
         public static readonly char PathSepChar = Path.DirectorySeparatorChar;
         public static readonly string WorkingPath = Directory.GetCurrentDirectory();
         public static readonly XNamespace XSD_NUGETSPEC = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
+        public static string BFlatArgOut = null;
         public static BuildMode BuildMode = BuildMode.None;
         public static bool DepositLib = false;
         public static string[] LibCache = Array.Empty<string>();
@@ -70,7 +71,6 @@ namespace BFlatA
         public static string RuntimePathExclu = null;
         public static ScriptType ScriptType = ScriptType.RSP;
         public static string TargetFx = null;
-        public static string BFlatArgOut = null;
         public static bool UseBuild = false;
         public static bool UseBuildIL = false;
         public static bool UseExclu = false;
@@ -302,11 +302,15 @@ namespace BFlatA
                             {
                                 loVerReq = Ver2IntArray(split[0]);
                                 hiVerReq = Ver2IntArray(split[1]);
+                                //if the two versions of different length
+                                var maxLen = Math.Max(loVerReq.Length, hiVerReq.Length);
+                                loVerReq = loVerReq.PadRight(maxLen);
+                                hiVerReq = hiVerReq.PadRight(maxLen);
                             }
                         }
                         else loVerReq = hiVerReq = Ver2IntArray(package.Value);
 
-                        if (loVerReq.Length == 3 && hiVerReq.Length == 3)
+                        if (loVerReq.Length == hiVerReq.Length) // can only compare when length equals.
                         {
                             //Required
                             matchedLibPaths = allLibPaths.Where(i =>
@@ -317,12 +321,12 @@ namespace BFlatA
                                 if (idx >= 0 && idx < splittedPath.Count - 1 && (splittedPath[^1] == target || splittedPath[^1].StartsWith("netstandard")))
                                 {
                                     var verDigits = Ver2IntArray(splittedPath[idx + 1]);
-                                    if (verDigits.Length == 3) for (int j = 0; j < 3; j++)
-                                        {
-                                            if (verDigits[j] > loVerReq[j] && verDigits[j] < hiVerReq[j]) return true;
-                                            else if (verDigits[j] < loVerReq[j] || verDigits[j] > hiVerReq[j]) return false;
-                                            else if (j == 2 && verDigits[j] >= loVerReq[j] && verDigits[j] <= hiVerReq[j]) return true;
-                                        }
+                                    for (int j = 0; j < verDigits.Length; j++)
+                                    {
+                                        if (verDigits[j] > loVerReq[j] && verDigits[j] < hiVerReq[j]) return true;
+                                        else if (verDigits[j] < loVerReq[j] || verDigits[j] > hiVerReq[j]) return false;
+                                        else if (j == verDigits.Length - 1 && verDigits[j] >= loVerReq[j] && verDigits[j] <= hiVerReq[j]) return true;
+                                    }
                                 }
                                 return false;
                             }).DoExclude();
@@ -371,7 +375,13 @@ namespace BFlatA
 
                         //Parse .nuspec file to obtain package dependencies
                         var packageID = package.Key + PathSepChar + actualVersion;
-                        var packagPath = Directory.GetDirectories(packageRoot, packageID).FirstOrDefault();
+                        string packagPath = null;
+                        try
+                        {
+                            packagPath = Directory.GetDirectories(packageRoot, packageID).FirstOrDefault();
+                        }
+                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+
                         if (!string.IsNullOrEmpty(packagPath))
                         {
                             var nuspecPath = Path.GetFullPath(packagPath + PathSepChar + package.Key.ToLower() + ".nuspec");  //nuespec filename is all lower case
@@ -398,6 +408,17 @@ namespace BFlatA
             return libBook;
         }
 
+        public static int[] PadRight(this int[] intArray, int length)
+        {
+            if (intArray.Length < length)
+            {
+                int[] newArray = new int[length];
+                Array.Copy(intArray, newArray, intArray.Length);
+                return newArray;
+            }
+            else return intArray;
+        }
+
         public static BuildMode ParseBuildMode(string typeStr) => typeStr.ToLower() switch
         {
             "flat" => BuildMode.Flat,
@@ -407,7 +428,7 @@ namespace BFlatA
         };
 
         public static int ParseProject(string projectFile,
-                                               string[] allLibPaths,
+                                       string[] allLibPaths,
                                        string target,
                                        string packageRoot,
                                        string[] restParams,
@@ -419,8 +440,8 @@ namespace BFlatA
                                        List<string> codeBook = null,
                                        List<string> libBook = null,
                                        List<string> resBook = null,
-                                       bool isDependency = false
-                                       )
+                                       List<string> refProjectBook = null,
+                                       bool isDependency = false)
         {
             outputType = "Shared";
             script = null;
@@ -433,7 +454,7 @@ namespace BFlatA
             libBook ??= new();
             List<string> removeBook = new();
             List<string> contentBook = new();
-            string refLocalProjects = "";
+            List<string> myRefProject = new();
             string lineFeed = GetLineFeed(scriptType);
             projectName = Path.GetFileNameWithoutExtension(projectFile);
             int err = 0;
@@ -518,53 +539,30 @@ namespace BFlatA
 
                                 if (buildMode == BuildMode.Tree)
                                 {
-                                    if (DepositLib) err = ParseProject(refProjectPath,
-                                                                       allLibPaths,
-                                                                       target,
-                                                                       packageRoot,
-                                                                       restParams,
-                                                                       buildMode,
-                                                                       scriptType,
-                                                                       out innerProjectName,
-                                                                       out innerOutputType,
-                                                                       out innerScript,
-                                                                       libBook: libBook,
-                                                                       isDependency: true);
-                                    else err = ParseProject(refProjectPath,
-                                                            allLibPaths,
-                                                            target,
-                                                            packageRoot,
-                                                            restParams,
-                                                            buildMode,
-                                                            scriptType,
-                                                            out innerProjectName,
-                                                            out innerOutputType,
-                                                            out innerScript,
-                                                            isDependency: true);
+                                    if (DepositLib) err = ParseProject(refProjectPath, allLibPaths, target, packageRoot,
+                                                                       restParams, buildMode, scriptType,
+                                                                       out innerProjectName, out innerOutputType,
+                                                                       out innerScript, null, libBook, null,
+                                                                       refProjectBook, true);
+                                    else err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restParams,
+                                                            buildMode, scriptType, out innerProjectName,
+                                                            out innerOutputType, out innerScript, isDependency: true);
                                 }
-                                else
-                                    err = ParseProject(refProjectPath,
-                                                       allLibPaths,
-                                                       target,
-                                                       packageRoot,
-                                                       restParams,
-                                                       buildMode,
-                                                       scriptType,
-                                                       out innerProjectName,
-                                                       out innerOutputType,
-                                                       out innerScript,
-                                                       codeBook,
-                                                       libBook,
-                                                       resBook,
-                                                       true);
+                                else err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restParams,
+                                                        buildMode, scriptType, out innerProjectName, out innerOutputType,
+                                                        out innerScript, codeBook, libBook, resBook, isDependency: true);
 
-                                if (err >= 0 && buildMode == BuildMode.Tree)  // <0 fatal, >=0 success
+                                if (err == 0 && buildMode == BuildMode.Tree)  // <0 bflata errors, >0 bflat errors
                                 {
                                     script = AppendScriptBlock(script, innerScript, scriptType);
 
                                     //add local projects to references
-                                    var refProject = "-r " + innerProjectName + GetExt(innerOutputType);
-                                    refLocalProjects += buildMode == BuildMode.Tree ? lineFeed + refProject : refProject + lineFeed; ;
+                                    myRefProject.Add("-r " + innerProjectName + GetExt(innerOutputType));
+                                }
+                                else if (err != 0)
+                                {
+                                    Console.WriteLine($"Error:fairelure building dependency:{projectName}=>{innerProjectName}!!! ");
+                                    break; //any dependency failure,break!
                                 }
                             }
 
@@ -573,17 +571,21 @@ namespace BFlatA
                             {
                                 string myScript = "";
                                 string argOut = isDependency ? null : BFlatArgOut;
+                                refProjectBook.AddRange(myRefProject);
+                                string getRefProjectLines() => string.Join("", (DepositLib ? refProjectBook : myRefProject).Select(i => buildMode == BuildMode.Tree ? lineFeed + i : i + lineFeed));
+
                                 if (UseBuild)
                                 {
                                     myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, ScriptType.RSP, buildMode, packageRoot, outputType, isDependency, argOut);
-                                    myScript += refLocalProjects;
+                                    myScript += getRefProjectLines();
 
+                                    Process buildProc = null;
                                     if (scriptType == ScriptType.RSP)
                                     {
                                         WriteScript(scriptType, packageRoot, projectName, myScript);
                                         Console.WriteLine($"Building {(isDependency ? "dependency" : "root")}:{projectName}...");
-                                        if (isDependency) build("bflat build-il @build.rsp");
-                                        else build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
+                                        if (isDependency) buildProc = build("bflat build-il @build.rsp");
+                                        else buildProc = build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
                                     }
                                     else
                                     {
@@ -592,6 +594,14 @@ namespace BFlatA
 
                                     var outputFile = argOut ?? (projectName + (isDependency ? ".dll" : (IsLinux ? "" : ".exe")));
 
+                                    buildProc.WaitForExit();
+                                    Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
+
+                                    if (buildProc.ExitCode != 0)
+                                    {
+                                        Console.WriteLine($"Error:Building failure:{projectName}!!!");
+                                        return buildProc.ExitCode;
+                                    }
                                     //Must wait for dependecy to be compiled
                                     if (!SpinWait.SpinUntil(() => IsReadable(outputFile), 20000)) Console.WriteLine($"Error:building timeout!");
                                     else Console.WriteLine("Script execution completed!");
@@ -599,11 +609,12 @@ namespace BFlatA
                                 else
                                 {
                                     myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, scriptType, buildMode, packageRoot, outputType, isDependency, argOut);
-                                    myScript += refLocalProjects;
+                                    myScript += getRefProjectLines();
                                     Console.WriteLine($"Appending Script:{projectName}...{Environment.NewLine}");
                                     script = AppendScriptBlock(script, myScript, scriptType);
                                 }
                             }
+                            else if (err != 0) return err;
                         }
                         else Console.WriteLine($"Warnning:Project properties are not compatible with the target:{target}, {projectFile}!!! ");
 
@@ -829,21 +840,24 @@ namespace BFlatA
         private static string AppendScriptBlock(string script, string myScript, ScriptType scriptType)
                                         => script + (script == null || script.EndsWith("\n") ? "" : NL + NL) + myScript;
 
-        private static void build(string myScript)
+        private static Process build(string myScript)
         {
             Console.WriteLine($"- Executing building script: {(myScript.Length > 22 ? myScript[..22] : myScript)}...");
+            Process buildProc = null;
             try
             {
                 if (myScript.StartsWith(COMPILER))
                 {
                     var paths = Environment.GetEnvironmentVariable("path").Split(IsLinux ? ':' : ';');
                     var compilerPath = paths.FirstOrDefault(i => File.Exists(i + PathSepChar + (IsLinux ? COMPILER : COMPILER + ".exe")));
-                    if (Directory.Exists(compilerPath)) Process.Start(compilerPath + PathSepChar + COMPILER, myScript.Remove(0, COMPILER.Length));
+                    if (Directory.Exists(compilerPath)) buildProc = Process.Start(compilerPath + PathSepChar + COMPILER, myScript.Remove(0, COMPILER.Length));
                     else Console.WriteLine("Error:" + COMPILER + " doesn't exist in PATH!");
                 }
-                else Process.Start(myScript);
+                else buildProc = Process.Start(myScript);
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+            return buildProc;
         }
 
         private static string getBuildScriptFileName(ScriptType scriptType = ScriptType.RSP) => scriptType switch
@@ -864,7 +878,7 @@ namespace BFlatA
         {
             string[] restArgs;
 
-            List<string> codeBook = new(), libBook = new(), resBook = new();
+            List<string> codeBook = new(), libBook = new(), resBook = new(), refProjectBook = new();
 
             Console.WriteLine($"BFlatA V{Assembly.GetEntryAssembly().GetName().Version} @github.com/xiaoyuvax/bflata{NL}" +
                 $"Description:{NL}" +
@@ -1015,7 +1029,7 @@ namespace BFlatA
                 //Parse project and all project references recursively.
                 if (UseBuild) Console.WriteLine($"--BUILDING----------------------------");
                 else Console.WriteLine($"--SCRIPTING---------------------------");
-                var err = ParseProject(ProjectFile, LibCache, TargetFx, PackageRoot, restArgs, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook);
+                var err = ParseProject(ProjectFile, LibCache, TargetFx, PackageRoot, restArgs, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook, refProjectBook, false);
 
                 if (err == 0)
                 {
@@ -1032,13 +1046,15 @@ namespace BFlatA
                         {
                             //Start Building
                             Console.WriteLine($"Building in FLAT mode:{projectName}...");
-                            build(ScriptType == ScriptType.RSP ? $"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd"));
+                            var buildProc = build(ScriptType == ScriptType.RSP ? $"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd"));
+                            buildProc.WaitForExit();
+                            Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
                         }
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Error occurred during parsing project file(s)!!(0x{err.ToString("{0:X}")}");
+                    Console.WriteLine($"Error occurred during parsing project file(s)!!(0x{err:X})");
                     return err;
                 }
                 Console.WriteLine($"--END---------------------------------");
