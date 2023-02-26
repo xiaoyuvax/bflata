@@ -1,5 +1,6 @@
 
 
+
 # BFlatA
 A wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
 
@@ -10,6 +11,23 @@ A wrapper/building script generator for BFlat, a native C# compiler, for recusiv
   You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net).
   
   BFlat is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
+
+Update 23-02-26 (V1.1.0.0):
+- Exclu mechanism added
+  Some (but not all) dependencies referenced by nuget packages with name starting with "System.*" might have already been included in runtime, which is enabled with `bflat --stdlib Dotnet` option, and must be excluded from the BFlata generated building script, otherwise you may see a lot of error CS0433 as below:
+
+> error CS0433: The type 'MD5' exists in both
+> 'System.Security.Cryptography.Algorithms, Version=4.2.1.0,
+> Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' and
+> 'System.Security.Cryptography, Version=7.0.0.0, Culture=neutral,
+> PublicKeyToken=b03f5f7f11d50a3a'
+
+BFlatA introduced a mechanism called "Exclu" to exclude packages from dependencies during scripting. Literally, Exclu means the Excluded Packages. BFlatA supports extracting names to be excluded from Dotnet runtime, more exactly, the specific Shared Frameworks such as Microsoft.NETCore.App(which is what BFlat incorprates so far), to generate ".exclu" file, which can be reused in later builds, by using the `-xx` option which uses the monker name specified by `-fx` to save/load Exclus from files accordingly, in addition to an always-load "packages.exclu" file, if exists, where you can put in custom Exclus.
+
+- 'build-il' is allowed now. This building mode is consistent with that of BFlat, and it only affects root project. Dependent projects will always being built under TREE mode with 'build-il' on.
+- A new Build Mode `-bm:treed` is introduced to provide a shortcut for `-bm:tree -dd`, simply a short.
+- DFlat style args r supported, now u can use both space or ":" for evaluation of argument values.
+- BFlat's `-o|--out<file>`  option is now hijacked by BFlatA and will be properly scripted in the generated script. At least, it will not be passed to every referenced projects.
 
 Update 23-02-24: 
 - Response file(.rsp) support added, and 'arguments too long' problem solved. The .rsp script will be taken as default building script format of BFlatA. You can use the generated build.rsp file like `bflat build @build.rsp` to build a FLATTENED project. 
@@ -22,27 +40,50 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
       Usage: bflata [build] <csproj file> [options]
     
-      [build]                                       Build with BFlat in %Path%, with -st option ignored(uses build.rsp always); If omitted, generate building script only with -bm option effective.
-      <csproj file>                                 The first existing file is parsed, other files will be passed to bflat.
+      [build|build-il]                              Build with BFlat in %Path%, with -st option ignored.
+                                                    If omitted, generate building script only, with -bm option still valid.
+    
+      <.csproj file>                                Must be the 2nd arg if 'build' specified,or the 1st otherwise,only 1 project allowed.
     
     Options:
-      -pr|--packageroot:<path to package storage>   eg.C:\Users\%username%\.nuget\packages or $HOME/.nuget/packages .
-      -rp|--refpath:<any path to be related>        A reference path to generate path for files in the building script, can be optimized to reduce path lengths.Default is '.' (current dir).
-      -fx|--framework:<moniker>                     The TFM(Target Framework Moniker) for selection of dependencies, such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.
-      -bm|--buildmode:<flat|tree>                   flat=flatten reference project trees to one for building;tree=build each project alone and reference'em accordingly with -r option.
+      -pr|--packageroot:<path to package storage>   eg.'C:\Users\%username%\.nuget\packages' or '$HOME/.nuget/packages'.
+    
+      -rp|--refpath:<any path to be related>        A reference path to generate paths for files in the building script,
+                                                    can be optimized to reduce path lengths.Default is '.' (current dir).
+    
+      -fx|--framework:<moniker>                     The TFM compatible with the built-in .net runtime of BFlat(see 'bflat --info')
+                                                    mainly purposed for matching dependencies, e.g. 'net7.0'
+    
+      -bm|--buildmode:<flat|tree|treed>             FLAT = flatten project tree to one for building;
+                                                    TREE = build each project alone and reference'em accordingly with -r option;
+                                                    TREED = '-bm:tree -dd'.
+    
       -st|--scripttype:<rsp|bat|sh>                 Response File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.
-      -dd|--depdep                                  Deposit Dependencies mode, valid with -bm:tree mode, where dependencies of each level will be deposited and served to all parental levels including the root project as to fulfill any possible dependency refs.
+    
+      -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree',
+                                                    where dependencies of child projects are deposited and served to parent project,
+                                                    as to fulfill any possible reference requirements
+    
       -t|--target:<Exe|Shared|WinExe>               Build Target, this arg will also be passed to BFlat.
     
+      -o|--out:<File>                               Output file path for the root project.This option will also be passed to BFlat.
+    
+      -xx|--exclufx:<dotnet Shared Framework path>  If path valid, lib exclus will be extracted from the path.
+                                                    e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
+                                                    and extracted exclus will be saved to '<moniker>.exclu' for further use.
+                                                    where moniker is specified by -fx option.
+    
+    
     Note:
-      Any other args will be passed 'as is' to BFlat.
-      BFlatA uses '-arg:value' style only, '-arg value' is not supported, though args passing to bflat are not subject to this rule.
+      Any other args will be passed 'as is' to BFlat, except for '-o.
+      For options, the ':' char can also be replaced with space. e.g. -pr:<path> = -pr <path>.
       Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.
       The filenames for the building script are one of 'build.rsp,build.cmd,build.sh' and the .rsp file allows larger arguments and is prefered.
+      Once '<moniker>.exclu' file is saved, you can use it for any later build, and a 'packages.exclu' is always loaded and can be used to store extra shared exclus, where 'exclu' is the short for 'Excluded Packages'.
     
     Examples:
-      bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -st:bat -bm:tree  <- only generate BAT script which builds project tree orderly.
-      bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -st:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.
+      bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -st:bat -bm:treed  <- only generate BAT script which builds project tree orderly with Deposit Dependencies.
+      bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -st:bat --arch x64  <- build in FLAT mode with '--arch x64' passed to BFlat and -st:bat ignored.
       
 
 ## Compile from source:
@@ -55,18 +96,8 @@ of course BFlat is prefered to build the program entirely to native code(without
 
 ## Known issues:
 
-- The "--buildmode:tree" option builds by reference hierachy, but the referenced projects are actually built with 'bflat build-il' options, which produce IL assemblies, not in native code, and only the root project is to be built in native code, this is because so far BFlat is not known to produce native .dll lib which can be referenced with -r option (if it will do so someday, or known to be able to do so, the TREE mode would actually work then).Note: TREE mode is useful dealing with the scenarios that Nuget package uses dependencies whose versions are not compatible with the parent project (in FLAT mode, as would cause errors), for the lib is compiled independently. Moreover with the `-dd`(Deposit Dependency) option, parental project who indirectly use child project's dependencies might also be solved. 
-- The "--buildmode:flat" option (default, if -bm not served) generates flattened building script which incorproate all code files, package references and resources of all referenced .csproj files into one, but this solution cannot solve the issue of version incompatibility of dependencies from different projects, especially secondary dependencies required by Nuget packages. Since version inconsistency of projects can be eliminated by making all projects reference the same packages of the same version, but secondary dependencies among precompiled packages are various and not changeable.
-- Some (but not all) dependencies referenced by nuget packages with name starting with "System.*" might have already been included in runtime, which is enabled with `bflat --stdlib Dotnet` option, and have been all excluded from the BFlata generated building script (for most scenario's sake), otherwise you may see a lot of error CS0433 as below:
-
-> error CS0433: The type 'MD5' exists in both
-> 'System.Security.Cryptography.Algorithms, Version=4.2.1.0,
-> Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' and
-> 'System.Security.Cryptography, Version=7.0.0.0, Culture=neutral,
-> PublicKeyToken=b03f5f7f11d50a3a'
-
-but not all lib starts with "System." shall be excluded, such as System.CodDom.dll which is likely used by BenchmarkDotNet, you should add it to the script and build manually. This problem would possibly be better solved in the future with an exclusion file or such.
-	
+- The "--buildmode:tree" option builds by reference hierachy, but the referenced projects are actually built with 'bflat build-il' option, which produces IL assemblies rather than native code, and only the root project is to be built in native code. This is because so far BFlat is not known to produce native .dll lib which can be referenced with -r option (if it will do so someday, or known to be able to do so, the TREE mode would actually work for native code then). Note: TREE mode is useful dealing with the scenarios that Nuget package uses dependencies whose versions are not compatible with the parent project (in FLAT mode, as would cause errors), for the lib is compiled independently. Moreover with the `-dd`(Deposit Dependency) option, parent project who indirectly use child project's dependencies might also be solved. 
+- The "--buildmode:flat" option (default, if -bm not served) generates flattened building script which incorproate all code files, package references and resources of all referenced .csproj files into one, but this solution cannot solve the issue of version incompatibility of dependencies from different projects, especially secondary dependencies required by Nuget packages. Version inconsistency of projects can be eliminated by making all projects reference the same packages of the same version, but secondary dependencies among precompiled packages are various and not changeable	
 - Parsing resources in .resx file is not implemented yet, for lacking of knowledge of how BFlat handles resources described in .resx file.
 ## Demo project
 
@@ -83,61 +114,78 @@ You can also build the demo project in TREE mode, with `-bm:tree` option, but an
 
 output:
 
-    BFlatA V1.0.0.1 (github.com/xiaoyuvax/bflata)
+    BFlatA V1.1.0.0 @github.com/xiaoyuvax/bflata
     Description:
-      A building script generator or wrapper for recusively building .csproj file with depending Nuget packages & embedded resources for BFlat, a native C# compiler(flattened.net).
+      A wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
+        - Referenced projects
+        - Nuget package dependencies
+        - Embedded resources
+      Before using BFlatA, you should get BFlat first at https://flattened.net.
     
-    Caching Nuget packages from path:C:\Users\Administrator.SP\.nuget\packages ...
-    Libs found:7916/Folders searched:30489
-    Found 7916 nuget packages!
     
-    Parsing Project:D:\Repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.csproj ...
-    Parsing Project:D:\Repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\Wima.Log.csproj ...
-    Found 9 code files(*.cs)
-    Found 17 dependent libs(*.dll)
-    Appending Script:Wima.Log...
-    Found 9 code files(*.cs)
-    Found 17 dependent libs(*.dll)
-    Appending Script:ObjectPoolDemo...
+    --ARGS--------------------------------
+    Build:On
+    DepositDep:On
+    BuildMode:Flat
+    ScriptMode:RSP
+    TargetFx:net7.0
+    PackageRoot:C:\Users\xiaoyu\.nuget\packages
+    RefPath:C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\BFlatA\bin\Debug\net7.0
+    Target:Exe
     
-    Found 2 args to be passed to BFlat.
-    Found 9 code files(*.cs)
-    Found 17 dependent libs(*.dll)
-    Scripting ObjectPoolDemo...
-    Script sucessfully written!
-    Building in Flat mode:ObjectPoolDemo...
-    Executing building script...
-    .\ObjectPoolDemo\WMLogService.Core\WimaLoggerBase.cs(358): Trim analysis warning IL2026: Wima.Log.WimaLoggerBase.<>c.<WriteInternal>b__130_0(StackFrame): Using member 'System.Diagnostics.StackFrame.GetMethod()' which has 'RequiresUnreferencedCodeAttribute' can break functionality when trimming application code. Metadata for the method might be incomplete or removed.
+    --LIB EXCLU---------------------------
+    Exclu file found:.\net7.0.exclu
+    Exclus loaded:166
+    
+    --LIB CACHE---------------------------
+    Package cache found!
+    Libs loaded:1609
+    
+    --BUILDING----------------------------
+    Parsing Project:C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.csproj ...
+    Parsing Project:C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\Wima.Log.csproj ...
+    
+    Generating script:ObjectPoolDemo
+    - Found 9 code files(*.cs)
+    - Found 16 dependent libs(*.dll)
+    Writing script:ObjectPoolDemo...
+    Script written!
+    
+    Building in FLAT mode:ObjectPoolDemo...
+    - Executing building script: bflat build @build.rsp...
+    --END---------------------------------
+    C:\Users\Xiaoyu\source\ObjectPoolDemo\WMLogService.Core\WimaLoggerBase.cs(358): Trim analysis warning IL2026: Wima.Log.WimaLoggerBase.<>c.<WriteInternal>b__130_0(StackFrame): Using member 'System.Diagnostics.StackFrame.GetMethod()' which has 'RequiresUnreferencedCodeAttribute' can break functionality when trimming application code. Metadata for the method might be incomplete or removed.
     C:\_oss\common-logging\src\Common.Logging.Portable\Logging\LogManager.cs(567): Trim analysis warning IL2072: Common.Logging.LogManager.<>c__DisplayClass35_0.<BuildLoggerFactoryAdapterFromLogSettings>b__0(): 'type' argument does not satisfy 'DynamicallyAccessedMemberTypes.PublicConstructors' in call to 'System.Activator.CreateInstance(Type,Object[])'. The return value of method 'Common.Logging.Configuration.LogSetting.FactoryAdapterType.get' does not have matching annotations. The source value must declare at least the same requirements as those declared on the target location it is assigned to.
     C:\_oss\common-logging\src\Common.Logging.Portable\Logging\LogManager.cs(571): Trim analysis warning IL2072: Common.Logging.LogManager.<>c__DisplayClass35_0.<BuildLoggerFactoryAdapterFromLogSettings>b__0(): 'type' argument does not satisfy 'DynamicallyAccessedMemberTypes.PublicParameterlessConstructor' in call to 'System.Activator.CreateInstance(Type)'. The return value of method 'Common.Logging.Configuration.LogSetting.FactoryAdapterType.get' does not have matching annotations. The source value must declare at least the same requirements as those declared on the target location it is assigned to.
 
-and following is the content of the building script generated above:
+and following is the content of the building script (Response File) generated above:
 
-    @SET PR=C:\Users\administrator\.nuget\packages
-    @bflat build --target Exe --stdlib Dotnet ^
-    ..\..\..\..\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.cs ^
-    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\ESSevice.cs ^
-    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\IndexableDoc.cs ^
-    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\LogLine.cs ^
-    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLogger.cs ^
-    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLoggerBase.cs ^
-    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLoggerConfiguration.cs ^
-    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLoggerExtensions.cs ^
-    ..\..\..\..\ObjectPoolDemo\WMLogService.Core\WimaLoggerProvider.cs ^
-    -r %PR%\common.logging.core\3.4.1\lib\netstandard1.0\Common.Logging.Core.dll ^
-    -r %PR%\common.logging\3.4.1\lib\netstandard1.3\Common.Logging.dll ^
-    -r %PR%\elasticsearch.net\7.17.5\lib\netstandard2.1\Elasticsearch.Net.dll ^
-    -r %PR%\microsoft.csharp\4.6.0\lib\netstandard2.0\Microsoft.CSharp.dll ^
-    -r %PR%\microsoft.extensions.configuration.abstractions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.Abstractions.dll ^
-    -r %PR%\microsoft.extensions.configuration.binder\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.Binder.dll ^
-    -r %PR%\microsoft.extensions.configuration\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.dll ^
-    -r %PR%\microsoft.extensions.dependencyinjection.abstractions\7.0.0\lib\netstandard2.1\Microsoft.Extensions.DependencyInjection.Abstractions.dll ^
-    -r %PR%\microsoft.extensions.dependencyinjection\7.0.0\lib\netstandard2.1\Microsoft.Extensions.DependencyInjection.dll ^
-    -r %PR%\microsoft.extensions.logging.abstractions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Logging.Abstractions.dll ^
-    -r %PR%\microsoft.extensions.logging.configuration\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Logging.Configuration.dll ^
-    -r %PR%\microsoft.extensions.logging\7.0.0\lib\netstandard2.1\Microsoft.Extensions.Logging.dll ^
-    -r %PR%\microsoft.extensions.objectpool\7.0.3\lib\netstandard2.0\Microsoft.Extensions.ObjectPool.dll ^
-    -r %PR%\microsoft.extensions.options.configurationextensions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Options.ConfigurationExtensions.dll ^
-    -r %PR%\microsoft.extensions.options\7.0.0\lib\netstandard2.1\Microsoft.Extensions.Options.dll ^
-    -r %PR%\microsoft.extensions.primitives\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll ^
-    -r %PR%\nest\7.17.5\lib\netstandard2.0\Nest.dll
+    --target Exe 
+    -stdlib Dotnet
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.cs
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\ESSevice.cs
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\IndexableDoc.cs
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\LogLine.cs
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLogger.cs
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLoggerBase.cs
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLoggerConfiguration.cs
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLoggerExtensions.cs
+    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLoggerProvider.cs
+    -r C:\Users\xiaoyu\.nuget\packages\common.logging.core\3.4.1\lib\netstandard1.0\Common.Logging.Core.dll
+    -r C:\Users\xiaoyu\.nuget\packages\common.logging\3.4.1\lib\netstandard1.3\Common.Logging.dll
+    -r C:\Users\xiaoyu\.nuget\packages\elasticsearch.net\7.17.5\lib\netstandard2.1\Elasticsearch.Net.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.configuration.abstractions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.Abstractions.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.configuration.binder\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.Binder.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.configuration\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.dependencyinjection.abstractions\7.0.0\lib\netstandard2.1\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.dependencyinjection\7.0.0\lib\netstandard2.1\Microsoft.Extensions.DependencyInjection.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.logging.abstractions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Logging.Abstractions.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.logging.configuration\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Logging.Configuration.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.logging\7.0.0\lib\netstandard2.1\Microsoft.Extensions.Logging.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.objectpool\7.0.3\lib\netstandard2.0\Microsoft.Extensions.ObjectPool.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.options.configurationextensions\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Options.ConfigurationExtensions.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.options\7.0.0\lib\netstandard2.1\Microsoft.Extensions.Options.dll
+    -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.primitives\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll
+    -r C:\Users\xiaoyu\.nuget\packages\nest\7.17.5\lib\netstandard2.0\Nest.dll
+
+Otherwise, you can generate Windows Batch or Linux Shell Script without the "build" keyword, and select ScriptType by `-st` option, and BuildMode by `-bm` option.
