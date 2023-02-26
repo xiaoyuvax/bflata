@@ -1,23 +1,21 @@
 
 
 # BFlatA
-A wrapper/building script generator for recusively building .csproj file with:
+A wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
 
  - Referenced projects
  - Nuget package dependencies
  - Embedded resources  
 
-  for BFlat, a native C# compiler([flattened.net](https://flattened.net)).
+  You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net).
   
-  This program is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
+  BFlat is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 Update 23-02-24: 
 - Response file(.rsp) support added, and 'arguments too long' problem solved. The .rsp script will be taken as default building script format of BFlatA. You can use the generated build.rsp file like `bflat build @build.rsp` to build a FLATTENED project. 
-Note: a single .rsp file itself does not support building project Tree, use -sm:bat or -sm:sh to generate script that supports building project trees, or build through BFlatA directly instead(use `build` option).  
-- Paths cache of Nuget packages are now cached to packages.cache in the working path, and will be reused at the next run, as to improve performance.
-- A new `-dd` (Deposit Dependencies) option is introduced for compiling projects who uses references of child projects. dependencies will be added-up (deposited) along the hiearchy line and be accumulatively served to the parent project.
-
-
+Note: a single .rsp file itself does not support building project Tree, instead you may use `-st:bat` or `-st:sh` to generate script that supports building project trees, or build through BFlatA directly(with both `build` and `-bm:tree` option on).  
+- Paths cache of Nuget packages are now saved to packages.cache in the working path, and will be reused at the next run, as to improve performance.
+- A new `-dd` (Deposit Dependencies) option is introduced for compiling projects who uses references of child projects indirectly, and still offering certain extent of version consistency, where dependencies are added-up (deposited) along the hiearchy line and be accumulatively served to the parent project level by level (if any dependency version conflict upon merging with parent level, higher version will be retained, as to guarantee maximal version compatibility).
 
 
 ##  Usage:
@@ -47,7 +45,7 @@ Note: a single .rsp file itself does not support building project Tree, use -sm:
       bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -st:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.
       
 
-## Compile:
+## Compile from source:
  Since Bflata is a very tiny program that you can use any of following compilers to build it:
 - BFlat [github.com/bflattened/bflat](https://github.com/bflattened/bflat) 
 - Dotnet C# compiler
@@ -57,9 +55,9 @@ of course BFlat is prefered to build the program entirely to native code(without
 
 ## Known issues:
 
-- The "--buildmode:tree" option builds by reference hierachy, but the referenced projects are actually built with 'bflat build-il' options, which produce IL assemblies, not native code, and only the root project is to be built in native code (so far BFlat is not known to produce native dll lib which can be referenced with -r option).
+- The "--buildmode:tree" option builds by reference hierachy, but the referenced projects are actually built with 'bflat build-il' options, which produce IL assemblies, not in native code, and only the root project is to be built in native code, this is because so far BFlat is not known to produce native .dll lib which can be referenced with -r option (if it will do so someday, or known to be able to do so, the TREE mode would actually work then).Note: TREE mode is useful dealing with the scenarios that Nuget package uses dependencies whose versions are not compatible with the parent project (in FLAT mode, as would cause errors), for the lib is compiled independently. Moreover with the `-dd`(Deposit Dependency) option, parental project who indirectly use child project's dependencies might also be solved. 
 - The "--buildmode:flat" option (default, if -bm not served) generates flattened building script which incorproate all code files, package references and resources of all referenced .csproj files into one, but this solution cannot solve the issue of version incompatibility of dependencies from different projects, especially secondary dependencies required by Nuget packages. Since version inconsistency of projects can be eliminated by making all projects reference the same packages of the same version, but secondary dependencies among precompiled packages are various and not changeable.
-- Some but not all dependencies referenced by nuget packages with name starts with "System.*" might have already been included in runtime, which is enabled with "bflat --stdlib Dotnet" option, and have been all excluded from the BFlata generated building script (for most scenario's sake), otherwise you may see a lot of error CS0433 as below:
+- Some (but not all) dependencies referenced by nuget packages with name starting with "System.*" might have already been included in runtime, which is enabled with `bflat --stdlib Dotnet` option, and have been all excluded from the BFlata generated building script (for most scenario's sake), otherwise you may see a lot of error CS0433 as below:
 
 > error CS0433: The type 'MD5' exists in both
 > 'System.Security.Cryptography.Algorithms, Version=4.2.1.0,
@@ -67,7 +65,7 @@ of course BFlat is prefered to build the program entirely to native code(without
 > 'System.Security.Cryptography, Version=7.0.0.0, Culture=neutral,
 > PublicKeyToken=b03f5f7f11d50a3a'
 
-but not all lib starts with "System." shall be excluded, such as System.CodDom.dll which is likely used by BenchmarkDotNet, you should add it to the script and build manually. This problem would possibly also be better solved in the future by an exclusion file or such.
+but not all lib starts with "System." shall be excluded, such as System.CodDom.dll which is likely used by BenchmarkDotNet, you should add it to the script and build manually. This problem would possibly be better solved in the future with an exclusion file or such.
 	
 - Parsing resources in .resx file is not implemented yet, for lacking of knowledge of how BFlat handles resources described in .resx file.
 ## Demo project
@@ -79,7 +77,7 @@ but not all lib starts with "System." shall be excluded, such as System.CodDom.d
 > System;` if you are building with `--stdlib Dotnet` option of bflat.
 
 Following command build the project in the default FLAT mode(i.e. code files and references of underlying projects are to be merged and built together), and a buiding script file (default is `build.rsp`) will also be genreated.
-You can also build the demo project in TREE mode, with `-bm:tree` option, but an additional `-dd` option would be required to build this demo(but not all project needs it). The "-dd" option is required in case a project somehow miss dependencies (which is not directly referenced in the .csproj file) from referenced child projects, only valid when `-bm:tree` option is used. With presence of this option, dependencies of referenced child projects would be added up(deposited) and served accumulatively to the parent project during building process. 
+You can also build the demo project in TREE mode, with `-bm:tree` option, but an additional `-dd` option would be required to build this demo(while not all projects need it). The `-dd` option is required in case a project somehow misses dependencies from referenced child projects, which is not directly referenced in the .csproj file), and is only valid when `-bm:tree` option is used. With presence of this option, dependencies of referenced child projects would be added up(deposited) and served accumulatively to the parent project during building process. 
 
 	bflata build ObjectPoolDemo.csproj -pr:C:\Users\%username%\.nuget\packages -fx:net7.0 --stdlib Dotnet 
 
