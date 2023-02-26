@@ -10,7 +10,7 @@ using System.Xml;
 using System.Xml.Linq;
 
 #if BFLAT
-[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.3")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.1.0.0")]
 #endif
 
 namespace BFlatA
@@ -19,7 +19,8 @@ namespace BFlatA
     {
         None,
         Flat,
-        Tree
+        Tree,
+        TreeDepositDependency
     }
 
     public enum ScriptType
@@ -47,8 +48,10 @@ namespace BFlatA
     {
         public const char ARG_EVALUATION_CHAR = ':';
         public const string CACHE_FILENAME = "packages.cache";
-        public const int COL_WIDTH = 40;
+        public const int COL_WIDTH = 48;
         public const string COMPILER = "bflat";
+        public const string CUSTOM_EXCLU_FILENAME_WITHOUT_EXT = "packages";
+        public const string EXCLU_EXT = "exclu";
         public static readonly string[] IGNORED_SUBFOLDER_NAMES = { "bin", "obj" };
         public static readonly bool IsLinux = Path.DirectorySeparatorChar == '/';
         public static readonly string NL = Environment.NewLine;
@@ -58,25 +61,61 @@ namespace BFlatA
         public static BuildMode BuildMode = BuildMode.None;
         public static bool DepositLib = false;
         public static string[] LibCache = Array.Empty<string>();
+        public static string[] LibExclu = Array.Empty<string>();
         public static string OutputType = "Exe";
         public static string PackageRoot = null;
         public static List<string> ParsedProjectPaths = new();
         public static string ProjectFile = null;
         public static string RefPath = Directory.GetCurrentDirectory();
+        public static string RuntimePathExclu = null;
         public static ScriptType ScriptType = ScriptType.RSP;
         public static string TargetFx = null;
+        public static string BFlatArgOut = null;
         public static bool UseBuild = false;
+        public static bool UseBuildIL = false;
+        public static bool UseExclu = false;
+
+        /// <summary>
+        /// Exclude Exclus and Runtime libs.
+        /// </summary>
+        /// <param name="paths"></param>
+        /// <returns></returns>
+        public static IEnumerable<string> DoExclude(this IEnumerable<string> paths) =>
+            paths.Where(i => !i.Contains(PathSepChar + "runtime."))
+            .Where(i => !LibExclu.Any(x =>
+            {
+                var lox = x.ToLower();
+                if (lox.EndsWith(".dll")) lox = lox.Replace(".dll", "");
+                return i.Contains(PathSepChar + lox + PathSepChar);
+            }
+            ));
+
+        public static string[] ExtractExclu(string path)
+        {
+            if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
+                try
+                {
+                    Console.WriteLine($"Extracting exclus from:{path}");
+                    return Directory.GetFiles(path, "*.*.dll").Select(i => Path.GetFileNameWithoutExtension(i).ToLower())
+                        .Where(i => i.StartsWith("system.") || i.StartsWith("microsoft.")).ToArray();
+                }
+                catch (Exception ex) { Console.WriteLine($"{ex.Message}{NL}"); }
+
+            return Array.Empty<string>();
+        }
 
         public static string GenerateScript(string projectName,
-                                         IEnumerable<string> restParams,
-                                         IEnumerable<string> codeFileList,
-                                         IEnumerable<string> libBook,
-                                         IEnumerable<string> resPaths,
-                                         ScriptType scriptType,
-                                         BuildMode buildMode,
-                                         string packageRoot,
-                                         string outputType = "Exe"
-                                         )
+                                            IEnumerable<string> restParams,
+                                            IEnumerable<string> codeFileList,
+                                            IEnumerable<string> libBook,
+                                            IEnumerable<string> resPaths,
+                                            ScriptType scriptType,
+                                            BuildMode buildMode,
+                                            string packageRoot,
+                                            string outputType = "Exe",
+                                            bool isDependency = false,
+                                            string bflatArgOut = null
+                                            )
         {
             Console.WriteLine($"{NL}Generating script:{projectName}");
 
@@ -88,13 +127,18 @@ namespace BFlatA
             {
                 if (scriptType != ScriptType.RSP)
                 {
-                    cmd.Append((IsLinux ? "" : "@") + COMPILER + " build ");
+                    cmd.Append((IsLinux ? "" : "@") + COMPILER + $" {(UseBuildIL || isDependency ? "build-il" : "build")} ");
                     Console.WriteLine();
                 }
 
-                if (outputType != "Exe" && outputType != "WinExe")
+                if (isDependency)
                 {
-                    cmd.Append($"-o {projectName}.dll ");
+                    cmd.Append($"-o {projectName}.dll ");  //all dependencies will use the ext of ".dll", even it's an exe, the name doesn't matter.
+                    if (scriptType == ScriptType.RSP) cmd.AppendLine();
+                }
+                else if (!string.IsNullOrEmpty(bflatArgOut))
+                {
+                    cmd.Append($"-o {bflatArgOut} ");
                     if (scriptType == ScriptType.RSP) cmd.AppendLine();
                 }
 
@@ -114,27 +158,28 @@ namespace BFlatA
             if (codeFileList.Any())
             {
                 cmd.Append(lineFeed);
-                cmd.AppendJoin(lineFeed, codeFileList.Select(i => i.Replace("@", getRefPathMacro())).OrderBy(i => i));
+                cmd.AppendJoin(lineFeed, codeFileList.Select(i => formatPath(i.Replace("@", getRefPathMacro()))).OrderBy(i => i));
                 Console.WriteLine($"- Found {codeFileList.Count()} code files(*.cs)");
             }
 
             if (libBook.Any())
             {
                 cmd.Append(lineFeed + "-r ");
-                cmd.AppendJoin(lineFeed + "-r ", libBook.Select(i => i.Replace("@", getPackageRootMacro())).OrderBy(i => i));
+                cmd.AppendJoin(lineFeed + "-r ", libBook.Select(i => formatPath(i.Replace("@", getPackageRootMacro()))).OrderBy(i => i));
                 Console.WriteLine($"- Found {libBook.Count()} dependent libs(*.dll)");
             }
 
             if (resPaths.Any())
             {
                 cmd.Append(lineFeed + "-res ");
-                cmd.AppendJoin(lineFeed + "-res ", resPaths.Select(i => i.Replace("@", getRefPathMacro())).OrderBy(i => i));
+                cmd.AppendJoin(lineFeed + "-res ", resPaths.Select(i => formatPath(i.Replace("@", getRefPathMacro()))).OrderBy(i => i));
                 Console.WriteLine($"Found {resPaths.Count()} embedded resources(*.resx and other)");
             }
             if (buildMode != BuildMode.Tree) cmd.Append(lineFeed);  //last return at the end of a script;
 
             string getRefPathMacro() => scriptType switch { ScriptType.BAT => "%RP%", ScriptType.SH => "$RP", _ => RefPath };
             string getPackageRootMacro() => scriptType switch { ScriptType.BAT => "%PR%", ScriptType.SH => "$PR", _ => packageRoot };
+            string formatPath(string path) => ScriptType == ScriptType.RSP ? Path.GetFullPath(path) : path;
 
             return cmd.ToString();
         }
@@ -153,8 +198,81 @@ namespace BFlatA
             _ => Environment.NewLine
         };
 
+        public static bool IsReadable(string file)
+        {
+            if (File.Exists(file))
+            {
+                try
+                {
+                    Thread.Sleep(1000);
+                    using var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    return true;
+                }
+                catch { return false; }
+            }
+            return false;
+        }
+
+        public static void LoadCache()
+        {
+            var lastCursorPost = Console.GetCursorPosition();
+            List<string> cache = new();
+            int count = 0;
+            try
+            {
+                using var st = new StreamReader(File.OpenRead(CACHE_FILENAME));
+                while (!st.EndOfStream)
+                {
+                    count++;
+                    Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
+                    Console.Write($"Libs loaded:{count}");
+                    var line = st.ReadLine();
+                    if (!string.IsNullOrEmpty(line) && Directory.Exists(line)) cache.Add(line);
+                }
+                LibCache = cache.DoExclude().ToArray();
+            }
+            catch (Exception e) { Console.WriteLine(e.Message); }
+            Console.WriteLine("");
+        }
+
+        public static void LoadExclu()
+        {
+            int count = 0;
+            List<string> exclude = new();
+            try
+            {
+                var excluFiles = Directory.GetFiles(".", "*." + EXCLU_EXT).Where(i =>
+                  {
+                      var excluFN = Path.GetFileNameWithoutExtension(i).ToLower();
+                      return excluFN == TargetFx || excluFN == CUSTOM_EXCLU_FILENAME_WITHOUT_EXT;
+                  }).ToArray();
+                if (excluFiles.Length == 0) Console.WriteLine("No Exclu files found!");
+                else foreach (string f in excluFiles)
+                    {
+                        count = 0;
+                        Console.WriteLine($"Exclu file found:.{PathSepChar}{Path.GetFileName(f)}");
+                        (int Left, int Top) = Console.GetCursorPosition();
+                        using var st = new StreamReader(File.OpenRead(f));
+                        while (!st.EndOfStream)
+                        {
+                            var line = st.ReadLine().ToLower();
+                            if (!string.IsNullOrEmpty(line) && !line.StartsWith('#') && !exclude.Contains(line))
+                            {
+                                exclude.Add(line);
+                                count++;
+                            }
+                            Console.SetCursorPosition(Left, Top);
+                            Console.WriteLine($"Exclus loaded:{count}");
+                        }
+                        LibExclu = exclude.ToArray();
+                    }
+            }
+            catch (Exception e) { Console.WriteLine(e.Message); }
+            Console.WriteLine("");
+        }
+
         public static List<string> MatchPackages(string[] allLibPaths,
-                                                     Dictionary<string, string> packageReferences,
+                                                                     Dictionary<string, string> packageReferences,
                                                      string packageRoot,
                                                      IEnumerable<string> multiTargets = null,
                                                      List<string> libBook = null)
@@ -207,9 +325,7 @@ namespace BFlatA
                                         }
                                 }
                                 return false;
-                            }).Where(i => !i.Contains(PathSepChar + "runtime.")) //Runtime libs must be excluded;
-                            .Where(i => !i.Contains(PathSepChar + "system.")) //Runtime libs must be excluded;
-                            ;
+                            }).DoExclude();
                         }
 
                         //deduplication of libs references (in Flat mode, dependency may not be compatible among projects, the top version will be kept)
@@ -286,6 +402,7 @@ namespace BFlatA
         {
             "flat" => BuildMode.Flat,
             "tree" => BuildMode.Tree,
+            "treed" => BuildMode.TreeDepositDependency,
             _ => BuildMode.None
         };
 
@@ -455,32 +572,33 @@ namespace BFlatA
                             if (err == 0 && buildMode == BuildMode.Tree)
                             {
                                 string myScript = "";
+                                string argOut = isDependency ? null : BFlatArgOut;
                                 if (UseBuild)
                                 {
-                                    myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, ScriptType.RSP, buildMode, packageRoot, outputType);
+                                    myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, ScriptType.RSP, buildMode, packageRoot, outputType, isDependency, argOut);
                                     myScript += refLocalProjects;
 
                                     if (scriptType == ScriptType.RSP)
                                     {
-
-
                                         WriteScript(scriptType, packageRoot, projectName, myScript);
                                         Console.WriteLine($"Building {(isDependency ? "dependency" : "root")}:{projectName}...");
                                         if (isDependency) build("bflat build-il @build.rsp");
-                                        else build("bflat build @build.rsp");
+                                        else build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
                                     }
-                                    else build(myScript.Replace("@", packageRoot));
+                                    else
+                                    {
+                                        //under build mode, scriptType is always RSP
+                                    }
 
+                                    var outputFile = argOut ?? (projectName + (isDependency ? ".dll" : (IsLinux ? "" : ".exe")));
 
-                                    var outputFile = projectName + (isDependency ? ".dll" : (IsLinux ? "" : ".exe"));
-
-                                    //Wait for compiling
-                                    if (!SpinWait.SpinUntil(() => File.Exists(outputFile), 20000)) Console.WriteLine($"Error:building timeout!");
-                                    else Console.WriteLine("Script execution done!");
+                                    //Must wait for dependecy to be compiled
+                                    if (!SpinWait.SpinUntil(() => IsReadable(outputFile), 20000)) Console.WriteLine($"Error:building timeout!");
+                                    else Console.WriteLine("Script execution completed!");
                                 }
                                 else
                                 {
-                                    myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, scriptType, buildMode, packageRoot, outputType);
+                                    myScript = GenerateScript(projectName, restParams, codeBook, libBook, resBook, scriptType, buildMode, packageRoot, outputType, isDependency, argOut);
                                     myScript += refLocalProjects;
                                     Console.WriteLine($"Appending Script:{projectName}...{Environment.NewLine}");
                                     script = AppendScriptBlock(script, myScript, scriptType);
@@ -576,20 +694,25 @@ namespace BFlatA
             var libPath = PathSepChar + "lib" + PathSepChar;
             int pathCount = 0, libCount = 0;
             var lastCursorPost = Console.GetCursorPosition();
-            if (!string.IsNullOrEmpty(packageRoot)) LibCache = Directory.GetDirectories(packageRoot, "*", SearchOption.AllDirectories)
-               .Where(i =>
-               {
-                   pathCount++;
-                   Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
-                   Console.Write($"Libs found:{libCount}/Folders searched:{pathCount}");
-                   var splitted = i.Split(PathSepChar, StringSplitOptions.RemoveEmptyEntries);
-                   if (splitted[^2].ToLower() == "lib")
+
+            try
+            {
+                if (!string.IsNullOrEmpty(packageRoot)) LibCache = Directory.GetDirectories(packageRoot, "*", SearchOption.AllDirectories)
+                   .Where(i =>
                    {
-                       libCount++;
-                       return true;
-                   }
-                   else return false;
-               }).OrderByDescending(i => i).ToArray();
+                       pathCount++;
+                       Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
+                       Console.Write($"Libs found:{libCount}/Folders searched:{pathCount}");
+                       var splitted = i.Split(PathSepChar, StringSplitOptions.RemoveEmptyEntries);
+                       if (splitted[^2].ToLower() == "lib")
+                       {
+                           libCount++;
+                           return true;
+                       }
+                       else return false;
+                   }).DoExclude().OrderByDescending(i => i).ToArray();
+            }
+            catch (Exception ex) { Console.WriteLine(ex.Message); }
 
             Console.WriteLine($"{NL}Found {LibCache.Length} nuget packages!");
         }
@@ -599,21 +722,35 @@ namespace BFlatA
         public static void ShowHelp()
         {
             Console.WriteLine($"  Usage: bflata [build] <csproj file> [options]{NL}");
-            Console.WriteLine("  [build]".PadRight(COL_WIDTH) + "\tBuild with BFlat in %Path%, with -st option ignored(uses build.rsp always); If omitted, generate building script only with -bm option effective.");
-            Console.WriteLine("  <csproj file>".PadRight(COL_WIDTH) + "\tThe first existing file is parsed, other files will be passed to bflat.");
+            Console.WriteLine("  [build]".PadRight(COL_WIDTH) + "Build with BFlat in %Path%, with -st option ignored.");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"If omitted, generate building script only, with -bm option still valid.{NL}");
+            Console.WriteLine("  <csproj file>".PadRight(COL_WIDTH) + "Must be the 2nd arg if 'build' specified,or the 1st otherwise,only 1 project allowed.");
             Console.WriteLine($"{NL}Options:");
-            Console.WriteLine("  -pr|--packageroot:<path to package storage>".PadRight(COL_WIDTH) + "\teg.C:\\Users\\%username%\\.nuget\\packages or $HOME/.nuget/packages .");
-            Console.WriteLine("  -rp|--refpath:<any path to be related>".PadRight(COL_WIDTH) + "\tA reference path to generate path for files in the building script, can be optimized to reduce path lengths.Default is '.' (current dir).");
-            Console.WriteLine("  -fx|--framework:<moniker>".PadRight(COL_WIDTH) + "\tThe TFM(Target Framework Moniker) for selection of dependencies, such as 'net7.0' or 'netstandard2.1' etc. usually lowercase.");
-            Console.WriteLine("  -bm|--buildmode:<flat|tree>".PadRight(COL_WIDTH) + "\tflat=flatten reference project trees to one for building;tree=build each project alone and reference'em accordingly with -r option.");
-            Console.WriteLine("  -st|--scripttype:<rsp|bat|sh>".PadRight(COL_WIDTH) + "\tResponse File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.");
-            Console.WriteLine("  -dd|--depdep".PadRight(COL_WIDTH) + "\tDeposit Dependencies mode, valid with -bm:tree mode, where dependencies of each level will be deposited and served to all parental levels including the root project as to fulfill any possible dependency refs.");
-            Console.WriteLine("  -t|--target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + "\tBuild Target, this arg will also be passed to BFlat.");
+            Console.WriteLine("  -pr|--packageroot:<path to package storage>".PadRight(COL_WIDTH) + $"eg.'C:\\Users\\%username%\\.nuget\\packages' or '$HOME/.nuget/packages'.{NL}");
+            Console.WriteLine("  -rp|--refpath:<any path to be related>".PadRight(COL_WIDTH) + "A reference path to generate paths for files in the building script,");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"can be optimized to reduce path lengths.Default is '.' (current dir).{NL}");
+            Console.WriteLine("  -fx|--framework:<moniker>".PadRight(COL_WIDTH) + "The TFM compatible with the built-in .net runtime of BFlat(see 'bflat --info')");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"mainly purposed for matching dependencies, e.g. 'net7.0'{NL}");
+            Console.WriteLine("  -bm|--buildmode:<flat|tree|treed>".PadRight(COL_WIDTH) + "FLAT = flatten project tree to one for building;");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"TREE = build each project alone and reference'em accordingly with -r option;");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"TREED = '-bm:tree -dd'.{NL}");
+            Console.WriteLine("  -st|--scripttype:<rsp|bat|sh>".PadRight(COL_WIDTH) + $"Response File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.{NL}");
+            Console.WriteLine("  -dd|--depdep".PadRight(COL_WIDTH) + "Deposit Dependencies mode, valid with '-bm:tree',");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"where dependencies of child projects are deposited and served to parent project,");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"as to fulfill any possible reference requirements{NL}");
+            Console.WriteLine("  -t|--target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + $"Build Target, this arg will also be passed to BFlat.{NL}");
+            Console.WriteLine("  -o|--out:<File>".PadRight(COL_WIDTH) + $"Output file path for the root project.This option will also be passed to BFlat.{NL}");
+            Console.WriteLine("  -xx|--exclufx:<dotnet Shared Framework path>".PadRight(COL_WIDTH) + "If path valid, lib exclus will be extracted from the path.");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"e.g. 'C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App\\7.0.2'");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"and extracted exclus will be saved to '<moniker>.exclu' for further use.");
+            Console.WriteLine("".PadRight(COL_WIDTH) + $"where moniker is specified by -fx option.{NL}");
+
             Console.WriteLine($"{NL}Note:");
-            Console.WriteLine("  Any other args will be passed 'as is' to BFlat.");
-            Console.WriteLine("  BFlatA uses '-arg:value' style only, '-arg value' is not supported, though args passing to bflat are not subject to this rule.");
+            Console.WriteLine("  Any other args will be passed 'as is' to BFlat, except for '-o.");
+            Console.WriteLine("  For options, the ':' char can also be replaced with space. e.g. -pr:<path> = -pr <path>.");
             Console.WriteLine("  Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.");
             Console.WriteLine("  The filenames for the building script are one of 'build.rsp,build.cmd,build.sh' and the .rsp file allows larger arguments and is prefered.");
+            Console.WriteLine("  Once '<moniker>.exclu' file is saved, you can use it for any later build, and a 'packages.exclu' is always loaded and can be used to store extra shared exclus, where 'exclu' is the short for 'Excluded Packages'.");
             Console.WriteLine($"{NL}Examples:");
             Console.WriteLine("  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx=net7.0 -st:bat -bm:tree  <- only generate BAT script which builds project tree orderly.");
             Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -st:bat --arch x64  <- build and generate BAT script,and '--arch x64' r passed to bflat.");
@@ -631,40 +768,30 @@ namespace BFlatA
 
         public static int[] Ver2IntArray(string verStr) => verStr.Split('.').Select(i => int.TryParse(i, out int n) ? n : 0).ToArray();
 
-        public static void LoadCache()
-        {
-            var lastCursorPost = Console.GetCursorPosition();
-            List<string> cache = new List<string>();
-            int count = 0;
-            try
-            {
-                using var st = new StreamReader(File.OpenRead(CACHE_FILENAME));
-                while (!st.EndOfStream)
-                {
-                    count++;
-                    Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
-                    Console.Write($"Libs loaded:{count}");
-                    cache.Add(st.ReadLine());
-                }
-                LibCache = cache.ToArray();
-            }
-            catch (Exception e) { Console.WriteLine(e.Message); }
-            Console.WriteLine("");
-        }
-
         public static void WriteCache()
         {
             try
             {
                 using var st = File.Create(CACHE_FILENAME);
                 foreach (var l in LibCache) st.Write(Encoding.UTF8.GetBytes(l + NL));
-                st.Flush();
                 Console.WriteLine($"Package cache saved!");
             }
             catch (Exception e) { Console.WriteLine(e.Message); }
         }
 
-        public static void WriteScript(ScriptType scriptType, string packageRoot, string projectName, string script, string buildPath = ".")
+        public static void WriteExclu(string moniker)
+        {
+            try
+            {
+                var excluFile = moniker + "." + EXCLU_EXT;
+                using var st = File.Create(excluFile);
+                foreach (var l in LibExclu) st.Write(Encoding.UTF8.GetBytes(l + NL));
+                Console.WriteLine($"{LibExclu.Length} exclus saved to:{excluFile} !");
+            }
+            catch (Exception e) { Console.WriteLine(e.Message); }
+        }
+
+        public static void WriteScript(ScriptType scriptType, string packageRoot, string projectName, string script)
         {
             if (string.IsNullOrEmpty(script)) return;
             Console.WriteLine($"Writing script:{projectName}...");
@@ -735,52 +862,68 @@ namespace BFlatA
 
         private static int Main(string[] args)
         {
-            string[] restParams;
+            string[] restArgs;
 
             List<string> codeBook = new(), libBook = new(), resBook = new();
 
-            Console.WriteLine($"BFlatA V{Assembly.GetEntryAssembly().GetName().Version} (github.com/xiaoyuvax/bflata){NL}" +
+            Console.WriteLine($"BFlatA V{Assembly.GetEntryAssembly().GetName().Version} @github.com/xiaoyuvax/bflata{NL}" +
                 $"Description:{NL}" +
-                $"  A wrapper/building script generator for recusively building .csproj file with:{NL}" +
+                $"  A wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:{NL}" +
                 $"    - Referenced projects{NL}" +
                 $"    - Nuget package dependencies{NL}" +
                 $"    - Embedded resources{NL}" +
-                $"  for BFlat, a native C# compiler(flattened.net).{NL}");
+                $"  Before using BFlatA, you should get BFlat first at https://flattened.net.{NL}");
 
             bool tryGetArg(string a, string shortName, string fullName, out string value)
             {
                 value = null;
-                if (a.ToLower().StartsWith(shortName + ARG_EVALUATION_CHAR) || a.ToLower().StartsWith(fullName + ARG_EVALUATION_CHAR))
+                var loa = a.ToLower();
+                if (loa.StartsWith(shortName + ARG_EVALUATION_CHAR) || loa.StartsWith(fullName + ARG_EVALUATION_CHAR)
+                    || loa.StartsWith(shortName + ' ') || loa.StartsWith(fullName + ' '))
                 {
                     //restParams for BFlat
-                    restParams = RemoveArg(restParams, a);
-                    var splitted = a.Split(ARG_EVALUATION_CHAR);
-                    value = string.Join(ARG_EVALUATION_CHAR, splitted.Skip(1));
+                    restArgs = RemoveArg(restArgs, a);
+                    value = a[(shortName.Length + 1)..];
                     return true;
                 }
                 return false;
             }
 
             //Parse input args
-            restParams = args;
-            if (args.Length == 0)
+            restArgs = args;
+            if (args.Length == 0 || args.Contains("-?") || args.Contains("/?") || args.Contains("-h") || args.Contains("--help"))
             {
                 ShowHelp();
                 return 0;
             }
-            else foreach (var a in args)
+            else
+            {
+                // build must present at the first arg.
+                if (restArgs[0].ToLower() == "build")
                 {
-                    if (a == "-?" || a.ToLower() == "-h" || a.ToLower() == "--help")
-                    {
-                        ShowHelp();
-                        return 0;
-                    }
-                    else if (a.ToLower() == "build")
-                    {
-                        UseBuild = true;
-                        restParams = RemoveArg(restParams, a);
-                    }
-                    else if (tryGetArg(a, "-pr", "--packageroot", out string pr))
+                    UseBuild = true;
+
+                    restArgs = RemoveArg(restArgs, restArgs[0]);
+                }
+                else if (restArgs[0].ToLower() == "build-il")
+                {
+                    UseBuild = UseBuildIL = true;
+                    restArgs = RemoveArg(restArgs, restArgs[0]);
+                }
+
+                if (!restArgs[0].StartsWith("-") && File.Exists(restArgs[0]))
+                {
+                    ProjectFile = restArgs[0];
+                    restArgs = RemoveArg(restArgs, restArgs[0]);
+                }
+
+                //rearrange restArgs
+                restArgs = string.Join(' ', restArgs).Split("-", StringSplitOptions.RemoveEmptyEntries).Select(i => '-' + i.Trim()).ToArray();
+
+                //process options
+                foreach (var a in restArgs)
+                {
+                    if (tryGetArg(a, "-pr", "--packageroot", out string pr))
                         if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr);
                         else
                         {
@@ -794,29 +937,43 @@ namespace BFlatA
                             Console.WriteLine($"Error:RefPath does not exist or is invalid!");
                             return -1;
                         }
-                    else if (tryGetArg(a, "-fx", "--framework", out string fx)) TargetFx = fx;
+                    else if (tryGetArg(a, "-xx", "--exclufx", out string xrtp))
+                        if (Directory.Exists(xrtp)) RuntimePathExclu = Path.GetFullPath(xrtp);
+                        else
+                        {
+                            Console.WriteLine($"Error:RuntimePath does not exist or is invalid!");
+                            return -1;
+                        }
                     else if (tryGetArg(a, "-st", "--scripttype", out string sm)) ScriptType = ParseScriptType(sm);
                     else if (tryGetArg(a, "-bm", "--buildmode", out string bm)) BuildMode = ParseBuildMode(bm);
                     else if (tryGetArg(a, "-t", "--target", out string t)) OutputType = t;
+                    else if (tryGetArg(a, "-fx", "--framework", out string fx)) TargetFx = fx.ToLower();
+                    else if (tryGetArg(a, "-o", "--out", out string o)) //hijack -o arg of BFlat, and it shall not be passed to denpendent project
+                    {
+                        BFlatArgOut = o;
+                        restArgs = RemoveArg(restArgs, a);
+                    }
                     else if (a.ToLower() == "-dd" || a.ToLower() == "--depdep")
                     {
                         DepositLib = true;
-                        restParams = RemoveArg(restParams, a);
-                    }
-                    else if (string.IsNullOrEmpty(ProjectFile) && !a.StartsWith("-") && a.ToLower() != "build" && File.Exists(a))
-                    {
-                        ProjectFile = a;
-                        restParams = RemoveArg(restParams, a);
+                        restArgs = RemoveArg(restArgs, a);
                     }
                 }
+            }
 
-            //init default values
+            //init arg values
+            if (BuildMode == BuildMode.TreeDepositDependency)
+            {
+                BuildMode = BuildMode.Tree;
+                DepositLib = true;
+            }
+
             if (UseBuild)
             {
                 ScriptType = ScriptType.RSP;  //default ScriptType for building and -st option is ignored under Building mode.
                 if (BuildMode == BuildMode.None) BuildMode = BuildMode.Flat; //default BuildMode for Build option
             }
-            else if (BuildMode == BuildMode.Tree) Console.WriteLine("Warning: .rsp script generated under TREE mode is not buildable!");
+            else if (BuildMode == BuildMode.Tree) Console.WriteLine("Warning:.rsp script generated under TREE mode is not buildable!");
 
             if (string.IsNullOrEmpty(TargetFx)) TargetFx = "net7.0";
 
@@ -830,12 +987,18 @@ namespace BFlatA
             Console.WriteLine($"PackageRoot:{PackageRoot}");
             Console.WriteLine($"RefPath:{RefPath}");
             Console.WriteLine($"Target:{OutputType}");
-            Console.WriteLine($"--------------------------------------{NL}");
+            Console.WriteLine();
 
             if (!string.IsNullOrEmpty(ProjectFile))
             {
+                Console.WriteLine($"--LIB EXCLU---------------------------");
+                if (string.IsNullOrEmpty(RuntimePathExclu)) LoadExclu();
+                else
+                {
+                    LibExclu = ExtractExclu(RuntimePathExclu);
+                    WriteExclu(TargetFx);
+                }
                 Console.WriteLine($"--LIB CACHE---------------------------");
-                //Pre-caching nuget package "/lib/" paths
                 if (File.Exists(CACHE_FILENAME))
                 {
                     Console.WriteLine($"Package cache found!");
@@ -846,17 +1009,18 @@ namespace BFlatA
                     PreCacheLibs(PackageRoot);
                     if (LibCache.Length > 0) WriteCache();
                 }
-                Console.WriteLine($"--------------------------------------{NL}");
+                Console.WriteLine();
 
                 //Parse project and all project references recursively.
-                Console.WriteLine($"--GENERATING--------------------------");
-                var err = ParseProject(ProjectFile, LibCache, TargetFx, PackageRoot, restParams, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook);
+                if (UseBuild) Console.WriteLine($"--BUILDING----------------------------");
+                else Console.WriteLine($"--SCRIPTING---------------------------");
+                var err = ParseProject(ProjectFile, LibCache, TargetFx, PackageRoot, restArgs, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook);
 
                 if (err == 0)
                 {
                     //overwrite script under Flat Mode, and explicitly specify BuldMode.Tree as to generate the header part.
                     if (BuildMode != BuildMode.Tree)
-                        script = GenerateScript(projectName, restParams, codeBook, libBook, resBook, ScriptType, BuildMode.Tree, PackageRoot, OutputType);
+                        script = GenerateScript(projectName, restArgs, codeBook, libBook, resBook, ScriptType, BuildMode.Tree, PackageRoot, OutputType, false, BFlatArgOut);
 
                     if (!string.IsNullOrEmpty(script))
                     {
@@ -867,7 +1031,7 @@ namespace BFlatA
                         {
                             //Start Building
                             Console.WriteLine($"Building in FLAT mode:{projectName}...");
-                            build(ScriptType == ScriptType.RSP ? "bflat build @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd")); //WORKAROUND:args r too long for Flat Mode only.
+                            build(ScriptType == ScriptType.RSP ? $"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd"));
                         }
                     }
                 }
@@ -882,7 +1046,7 @@ namespace BFlatA
             {
                 Console.WriteLine($"Project file not specified!!{NL}");
                 Console.WriteLine($"use -? -h or --help for help and usage informatioon.");
-                return -0x01;
+                return -1;
             }
 
             return 0;
