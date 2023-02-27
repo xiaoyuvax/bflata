@@ -22,7 +22,7 @@ Update 23-02-26 (V1.1.0.0):
 > PublicKeyToken=b03f5f7f11d50a3a'
 
 BFlatA introduced a mechanism called "Exclu" to exclude packages from dependencies during scripting. Literally, Exclu means the Excluded Packages. BFlatA supports extracting names to be excluded from Dotnet runtime, more exactly, the specific Shared Frameworks such as Microsoft.NETCore.App(which is what BFlat incorprates so far), to generate ".exclu" file, which can be reused in later builds, by using the `-xx` option which uses the monker name specified by `-fx` to save/load Exclus from files accordingly, in addition to an always-load "packages.exclu" file, if exists, where you can put in custom Exclus.
-I provided a `net7.0.exclu` file in the repository as the default Exclu for net7.0, which is the default target of both BFlata and BFlat by now, and you can copy it to ur building working directory, if you don't want to extract Exclus by youself from Dotnet runtime(with -xx option).
+I provided a `net7.0.exclu` file in the repository as the default Exclu for net7.0, which is the default target of both BFlata and BFlat by now, and you can copy it to ur working directory, if you don't want to extract Exclus by youself from Dotnet runtime(with -xx option).
 
 - 'build-il' is allowed now. This building mode is consistent with that of BFlat, and it only affects root project. Dependent projects will always being built under TREE mode with 'build-il' on.
 - A new Build Mode `-bm:treed` is introduced to provide a shortcut for `-bm:tree -dd`, simply a short.
