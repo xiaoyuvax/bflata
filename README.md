@@ -37,52 +37,51 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 ##  Usage:
 
-      Usage: bflata [build|build-il] <csproj file> [options]
-    
-      [build|build-il]                              Build with BFlat in %Path%, with -st option ignored.
-                                                    If omitted, generate building script only, with -bm option still valid.
-    
-      <.csproj file>                                Must be the 2nd arg if 'build' specified,or the 1st otherwise,only 1 project allowed.
-    
-    Options:
-      -pr|--packageroot:<path to package storage>   eg.'C:\Users\%username%\.nuget\packages' or '$HOME/.nuget/packages'.
-    
-      -rp|--refpath:<any path to be related>        A reference path to generate paths for files in the building script,
-                                                    can be optimized to reduce path lengths.Default is '.' (current dir).
-    
-      -fx|--framework:<moniker>                     The TFM compatible with the built-in .net runtime of BFlat(see 'bflat --info')
-                                                    mainly purposed for matching dependencies, e.g. 'net7.0'
-    
-      -bm|--buildmode:<flat|tree|treed>             FLAT = flatten project tree to one for building;
-                                                    TREE = build each project alone and reference'em accordingly with -r option;
-                                                    TREED = '-bm:tree -dd'.
-    
-      -st|--scripttype:<rsp|bat|sh>                 Response File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.
-    
-      -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree',
-                                                    where dependencies of child projects are deposited and served to parent project,
-                                                    as to fulfill any possible reference requirements
-    
-      -t|--target:<Exe|Shared|WinExe>               Build Target, this arg will also be passed to BFlat.
-    
-      -o|--out:<File>                               Output file path for the root project.This option will also be passed to BFlat.
-    
-      -xx|--exclufx:<dotnet Shared Framework path>  If path valid, lib exclus will be extracted from the path.
-                                                    e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
-                                                    and extracted exclus will be saved to '<moniker>.exclu' for further use.
-                                                    where moniker is specified by -fx option.
-    
-    
-    Note:
-      Any other args will be passed 'as is' to BFlat, except for '-o.
-      For options, the ':' char can also be replaced with space. e.g. -pr:<path> = -pr <path>.
-      Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.
-      The filenames for the building script are one of 'build.rsp,build.cmd,build.sh' and the .rsp file allows larger arguments and is prefered.
-      Once '<moniker>.exclu' file is saved, you can use it for any later build, and a 'packages.exclu' is always loaded and can be used to store extra shared exclus, where 'exclu' is the short for 'Excluded Packages'.
-    
-    Examples:
-      bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -st:bat -bm:treed  <- only generate BAT script which builds project tree orderly with Deposit Dependencies.
-      bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -st:bat --arch x64  <- build in FLAT mode with '--arch x64' passed to BFlat and -st:bat ignored.
+	  Usage: bflata [build|build-il] <csproj file> [options]
+
+	  [build|build-il]                              Build with BFlat in %Path%, with -st option ignored.
+							If omitted, generate building script only, with -bm option still valid.
+
+	  <.csproj file>                                Must be the 2nd arg if 'build' specified, or the 1st otherwise, only 1 project allowed.
+
+	Options:
+	  -pr|--packageroot:<path to package storage>   eg.'C:\Users\%username%\.nuget\packages' or '$HOME/.nuget/packages'.
+
+	  -rp|--refpath:<any path to be related>        A reference path to generate paths for files in the building script,
+							can be optimized to reduce path lengths.Default is '.' (current dir).
+
+	  -fx|--framework:<moniker>                     The TFM compatible with the built-in .net runtime of BFlat(see 'bflat --info')
+							mainly purposed for matching dependencies, e.g. 'net7.0'
+
+	  -bm|--buildmode:<flat|tree|treed>             FLAT = flatten project tree to one for building;
+							TREE = build each project alone and reference'em accordingly with -r option;
+							TREED = '-bm:tree -dd'.
+
+	  -st|--scripttype:<rsp|bat|sh>                 Response File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.
+
+	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree',
+							where dependencies of child projects are deposited and served to parent project,
+							as to fulfill any possible reference requirements
+
+	  -t|--target:<Exe|Shared|WinExe>               Build Target, this option will also be passed to BFlat.
+
+	  -o|--out:<File>                               Output file path for the root project.This option will also be passed to BFlat.
+
+	  -xx|--exclufx:<dotnet Shared Framework path>  If path valid, lib exclus will be extracted from the path.
+							e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
+							and extracted exclus will be saved to '<moniker>.exclu' for further use.                                                where moniker is specified by -fx option.
+
+
+	Note:
+	  Any other args will be passed 'as is' to BFlat, except for '-o'.
+	  For options, the ':' char can also be replaced with a space. e.g. -pr:<path> = -pr <path>.
+	  Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.
+	  The filename for the building script are one of 'build.rsp,build.cmd,build.sh' and the .rsp file allows larger arguments and is prefered.
+	  Once '<moniker>.exclu' file is saved, you can use it for any later build, and a 'packages.exclu' is always loaded and can be used to store extra shared exclus, where 'exclu' is the short for 'Excluded Packages'.
+
+	Examples:
+	  bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -st:bat -bm:treed  <- only generate BAT script which builds project tree orderly with Deposit Dependencies.
+	  bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -st:bat --arch x64  <- build in FLAT mode with default target at .net7.0 and '--arch x64' passed to BFlat while the option -st:bat ignored.
       
 
 ## Compile from source:
