@@ -25,8 +25,8 @@ BFlatA introduced a mechanism called "Exclu" to exclude packages from dependenci
 
 - 'build-il' is allowed now. This building mode is consistent with that of BFlat, and it only affects root project. Dependent projects will always being built under TREE mode with 'build-il' on.
 - A new Build Mode `-bm:treed` is introduced to provide a shortcut for `-bm:tree -dd`, simply a short.
-- DFlat style args r supported, now u can use both space or ":" for evaluation of argument values.
-- BFlat's `-o|--out<file>`  option is now hijacked by BFlatA and will be properly scripted in the generated script. At least, it will not be passed to every referenced projects.
+- BFlat style args are supported now, u can use both space or ":" for evaluation of argument values.
+- BFlat's `-o|--out<file>`  option is now hijacked by BFlatA as to be properly scripted in the generated script. At least, it will not be passed to every referenced projects.
 
 Update 23-02-24: 
 - Response file(.rsp) support added, and 'arguments too long' problem solved. The .rsp script will be taken as default building script format of BFlatA. You can use the generated build.rsp file like `bflat build @build.rsp` to build a FLATTENED project. 
