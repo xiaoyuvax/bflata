@@ -13,8 +13,7 @@ A wrapper/building script generator for BFlat, a native C# compiler, for recusiv
   BFlat is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 Update 23-02-26 (V1.1.0.0):
-- Exclu mechanism added
-  Some (but not all) dependencies referenced by nuget packages with name starting with "System.*" might have already been included in runtime, which is enabled with `bflat --stdlib Dotnet` option, and must be excluded from the BFlata generated building script, otherwise you may see a lot of error CS0433 as below:
+- Exclu mechanism added. Some (but not all) dependencies referenced by nuget packages with name starting with "System.*" might have already been included in runtime, which is enabled with `bflat --stdlib Dotnet` option, and must be excluded from the BFlata generated building script, otherwise you may see a lot of error CS0433 as below:
 
 > error CS0433: The type 'MD5' exists in both
 > 'System.Security.Cryptography.Algorithms, Version=4.2.1.0,
