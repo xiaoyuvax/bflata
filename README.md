@@ -160,15 +160,15 @@ and following is the content of the building script (Response File) generated ab
 
     --target Exe 
     -stdlib Dotnet
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.cs
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\ESSevice.cs
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\IndexableDoc.cs
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\LogLine.cs
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLogger.cs
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLoggerBase.cs
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLoggerConfiguration.cs
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLoggerExtensions.cs
-    C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\WimaLoggerProvider.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\ESSevice.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\IndexableDoc.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\LogLine.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\WimaLogger.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\WimaLoggerBase.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\WimaLoggerConfiguration.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\WimaLoggerExtensions.cs
+    C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\WimaLoggerProvider.cs
     -r C:\Users\xiaoyu\.nuget\packages\common.logging.core\3.4.1\lib\netstandard1.0\Common.Logging.Core.dll
     -r C:\Users\xiaoyu\.nuget\packages\common.logging\3.4.1\lib\netstandard1.3\Common.Logging.dll
     -r C:\Users\xiaoyu\.nuget\packages\elasticsearch.net\7.17.5\lib\netstandard2.1\Elasticsearch.Net.dll
