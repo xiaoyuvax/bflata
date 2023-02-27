@@ -10,7 +10,7 @@ using System.Xml;
 using System.Xml.Linq;
 
 #if BFLAT
-[assembly: System.Reflection.AssemblyVersionAttribute("1.1.0.1")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.1.0.2")]
 #endif
 
 namespace BFlatA
@@ -64,8 +64,11 @@ namespace BFlatA
         public static string[] LibCache = Array.Empty<string>();
         public static string[] LibExclu = Array.Empty<string>();
         public static string OutputType = "Exe";
-        public static string PackageRoot = null;
+        public static string PackageRoot = "";
+
+        //use empty char instead of null, may reduce problem
         public static List<string> ParsedProjectPaths = new();
+
         public static string ProjectFile = null;
         public static string RefPath = Directory.GetCurrentDirectory();
         public static string RuntimePathExclu = null;
@@ -74,21 +77,16 @@ namespace BFlatA
         public static bool UseBuild = false;
         public static bool UseBuildIL = false;
         public static bool UseExclu = false;
+        public static string LibPathSegment { get; } = PathSepChar + "lib" + PathSepChar;
 
         /// <summary>
         /// Exclude Exclus and Runtime libs.
         /// </summary>
         /// <param name="paths"></param>
         /// <returns></returns>
-        public static IEnumerable<string> DoExclude(this IEnumerable<string> paths) =>
-            paths.Where(i => !i.Contains(PathSepChar + "runtime."))
-            .Where(i => !LibExclu.Any(x =>
-            {
-                var lox = x.ToLower();
-                if (lox.EndsWith(".dll")) lox = lox.Replace(".dll", "");
-                return i.Contains(PathSepChar + lox + PathSepChar);
-            }
-            ));
+        public static IEnumerable<string> DoExclude(this IEnumerable<string> paths) => paths
+            .Where(i => !i.Contains(PathSepChar + "runtime."))
+            .Where(i => !LibExclu.Any(x => i.Contains(PathSepChar + x + PathSepChar)));
 
         public static string[] ExtractExclu(string path)
         {
@@ -223,11 +221,15 @@ namespace BFlatA
                 using var st = new StreamReader(File.OpenRead(CACHE_FILENAME));
                 while (!st.EndOfStream)
                 {
-                    count++;
                     Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
-                    Console.Write($"Libs loaded:{count}");
+
                     var line = st.ReadLine();
-                    if (!string.IsNullOrEmpty(line) && Directory.Exists(line)) cache.Add(line);
+                    if (!string.IsNullOrEmpty(line) && Directory.Exists(line))
+                    {
+                        cache.Add(line);
+                        count++;
+                        Console.Write($"Libs loaded:{count}");
+                    }
                 }
                 LibCache = cache.DoExclude().ToArray();
             }
@@ -287,122 +289,134 @@ namespace BFlatA
 
                     // string requiredLibPath = null, compatibleLibPath = null;
                     IEnumerable<string> matchedLibPaths = null;
-                    string actualTarget = null, actualVersion = null;
-
-                    foreach (var target in multiTargets)
+                    string actualTarget = null, actualVersion = null, packageNameLo = null, packagePathSegment = null;
+                    packageNameLo = package.Key.ToLower();
+                    packagePathSegment = PathSepChar + packageNameLo + PathSepChar;
+                    //Check Exclu first
+                    if (LibExclu.Contains(packageNameLo))
                     {
-                        matchedLibPaths = null;
-                        actualTarget = null;
-
-                        int[] loVerReq = Array.Empty<int>(), hiVerReq = Array.Empty<int>();
-                        if (package.Value.StartsWith('[') && package.Value.EndsWith(']')) //version range
+                        Console.WriteLine($"Info:ignore package Exclu:{packageNameLo}");
+                    }
+                    else foreach (var target in multiTargets)
                         {
-                            var split = package.Value.TrimStart('[').TrimEnd(']').Split(',');
-                            if (split.Length >= 2)
-                            {
-                                loVerReq = Ver2IntArray(split[0]);
-                                hiVerReq = Ver2IntArray(split[1]);
-                                //if the two versions of different length
-                                var maxLen = Math.Max(loVerReq.Length, hiVerReq.Length);
-                                loVerReq = loVerReq.PadRight(maxLen);
-                                hiVerReq = hiVerReq.PadRight(maxLen);
-                            }
-                        }
-                        else loVerReq = hiVerReq = Ver2IntArray(package.Value);
+                            matchedLibPaths = null;
+                            actualTarget = null;
 
-                        if (loVerReq.Length == hiVerReq.Length) // can only compare when length equals.
-                        {
-                            //Required
-                            matchedLibPaths = allLibPaths.Where(i =>
+                            int[] loVerReq = Array.Empty<int>(), hiVerReq = Array.Empty<int>();
+                            if (package.Value.StartsWith('[') && package.Value.EndsWith(']')) //version range
                             {
-                                var splittedPath = new List<string>(i.Split(PathSepChar));
-                                var idx = splittedPath.IndexOf(package.Key.ToLower());
-
-                                if (idx >= 0 && idx < splittedPath.Count - 1 && (splittedPath[^1] == target || splittedPath[^1].StartsWith("netstandard")))
+                                var split = package.Value.TrimStart('[').TrimEnd(']').Split(',');
+                                if (split.Length >= 2)
                                 {
-                                    var verDigits = Ver2IntArray(splittedPath[idx + 1]);
-                                    for (int j = 0; j < verDigits.Length; j++)
+                                    loVerReq = Ver2IntArray(split[0]);
+                                    hiVerReq = Ver2IntArray(split[1]);
+                                    //if the two versions of different length
+                                    var maxLen = Math.Max(loVerReq.Length, hiVerReq.Length);
+                                    loVerReq = loVerReq.PadRight(maxLen);
+                                    hiVerReq = hiVerReq.PadRight(maxLen);
+                                }
+                            }
+                            else loVerReq = hiVerReq = Ver2IntArray(package.Value);
+
+                            if (loVerReq.Length == hiVerReq.Length) // can only compare when lengths equal.
+                            {
+                                matchedLibPaths = allLibPaths.Where(i =>
+                                {
+                                    var splittedPath = new List<string>(i.Split(PathSepChar));
+                                    var idx = splittedPath.IndexOf(packageNameLo);
+
+                                    if (idx >= 0 && idx < splittedPath.Count - 3
+                                    && (splittedPath[^1] == target || splittedPath[^1].StartsWith("netstandard")))
                                     {
-                                        if (verDigits[j] > loVerReq[j] && verDigits[j] < hiVerReq[j]) return true;
-                                        else if (verDigits[j] < loVerReq[j] || verDigits[j] > hiVerReq[j]) return false;
-                                        else if (j == verDigits.Length - 1 && verDigits[j] >= loVerReq[j] && verDigits[j] <= hiVerReq[j]) return true;
+                                        var verDigits = Ver2IntArray(splittedPath[idx + 1]);
+                                        for (int j = 0; j < verDigits.Length; j++)
+                                        {
+                                            if (verDigits[j] > loVerReq[j] && verDigits[j] < hiVerReq[j]) return true;
+                                            else if (verDigits[j] < loVerReq[j] || verDigits[j] > hiVerReq[j]) return false;
+                                            else if (j == verDigits.Length - 1 && verDigits[j] >= loVerReq[j] && verDigits[j] <= hiVerReq[j]) return true;
+                                        }
+                                    }
+                                    return false;
+                                }); //don't have to DoExclude() here, for allLibPaths r filtered already.
+                            }
+
+                            //deduplication of libs references (in Flat mode, dependencies may not be compatible among projects, the top version will be kept)
+                            string libPath = null;
+                            if (matchedLibPaths != null) foreach (var d in matchedLibPaths)
+                                {
+                                    libPath = d + PathSepChar + package.Key + ".dll";
+
+                                    //get case-sensitive file path
+                                    try
+                                    {
+                                        libPath = Directory.GetFiles(d).FirstOrDefault(i => i.ToLower() == libPath.ToLower());
+                                    }
+                                    catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+                                    if (libPath != null)
+                                    {
+                                        //Incase packageRoot not given.
+                                        libPath = string.IsNullOrEmpty(packageRoot) ? libPath : libPath.Replace(packageRoot, "@");
+                                        //Package name might be case-insensitive in .csproj file, while path will be case-sensitive on Linux.
+                                        var duplicatedPackages = libBook.Where(i => i.Contains(packagePathSegment));
+
+                                        if (duplicatedPackages.Any())
+                                        {
+                                            //determine newer version by path string order, no matter if libPath is one of duplicatedPackages.
+                                            libPath = duplicatedPackages.Concat(new[] { libPath })
+                                                .OrderByDescending(i => i.Replace("netstandard", "").Replace("net", "").Replace("netcoreapp", "").Replace("netcore", "").Replace(".", "")).First();
+                                            foreach (var p in duplicatedPackages.ToArray()) libBook.Remove(p);
+                                            libBook.Add(libPath);
+                                        }
+                                        else libBook.Add(libPath);
+
+                                        gotit = true;
+                                        break;
                                     }
                                 }
-                                return false;
-                            }).DoExclude();
-                        }
 
-                        //deduplication of libs references (in Flat mode, dependency may not be compatible among projects, the top version will be kept)
-                        string libPath = null;
-                        if (matchedLibPaths != null) foreach (var d in matchedLibPaths)
+                            if (libPath != null) //libPath should be the sole top lib reference in libBook
                             {
-                                libPath = d + PathSepChar + package.Key + ".dll";
+                                actualTarget = Path.GetFileName(Path.GetDirectoryName(libPath));
+                                var splittedPath = new List<string>(libPath.Split(PathSepChar));
+                                var idx = splittedPath.IndexOf(packageNameLo);
+                                if (idx > 0) actualVersion = splittedPath[idx + 1];  //special case: microsoft.win32.registry\5.0.0\runtimes\win\lib\netstandard2.0\Microsoft.Win32.Registry.dll
+                            }
 
-                                //get case-sensitive file path
-                                libPath = Directory.GetFiles(d).FirstOrDefault(i => i.ToLower() == libPath.ToLower());
+                            //if no target matched from actual path, use 'target' specified by user.
+                            actualTarget ??= target;
+                            actualVersion ??= package.Value;
 
-                                if (libPath != null)
+                            //Parse .nuspec file to obtain package dependencies, while libPath doesn't have to exist.
+                            string packageOfVerPathSegment = packagePathSegment + actualVersion + PathSepChar;
+                            string packagPath = null;
+                            try
+                            {
+                                packagPath = allLibPaths.FirstOrDefault(i => i.Contains(packageOfVerPathSegment))?.Split(LibPathSegment).FirstOrDefault();
+                            }
+                            catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+                            if (!string.IsNullOrEmpty(packagPath))
+                            {
+                                var nuspecPath = Path.GetFullPath(packagPath + PathSepChar + packageNameLo + ".nuspec");  //nuespec filename is all lower case
+                                if (File.Exists(nuspecPath))
                                 {
-                                    libPath = libPath.Replace(packageRoot, "@");
-                                    //Package name might be case-insensitive in csproject file, while path will be case-sensitive on Linux.
-                                    var duplicatedPackagePath = libBook
-                                        .FirstOrDefault(i => i.Contains(PathSepChar + package.Key.ToLower() + PathSepChar));
-                                    //determine newer version by path string order, compare from the end will optimize performance.
-                                    if (duplicatedPackagePath == null) libBook.Add(libPath);
-                                    else if (duplicatedPackagePath != libPath)
-                                    {
-                                        libPath = new[] { duplicatedPackagePath, libPath }
-                                        .OrderByDescending(i => i.Replace("netstandard", "").Replace("net", "").Replace("netcoreapp", "").Replace("netcore", "").Replace(".", "")).First();
-                                        libBook.Remove(duplicatedPackagePath);
-                                        libBook.Add(libPath);
-                                    }
-                                    gotit = true;
+                                    using var stream = File.OpenRead(nuspecPath);
+                                    var nuspecDoc = XDocument.Load(stream, LoadOptions.PreserveWhitespace);
+
+                                    var nodes = nuspecDoc.Root.Descendants(XSD_NUGETSPEC + "group");
+                                    nodes = nodes.FirstOrDefault(g => g.Attribute("targetFramework")?.Value.ToLower().TrimStart('.') == actualTarget)?.Elements();
+                                    var myDependencies = nodes?.ToDictionary(kv => kv.Attribute("id")?.Value, kv => kv.Attribute("version")?.Value);
+                                    if (myDependencies?.Any() == true) libBook = MatchPackages(allLibPaths, myDependencies, packageRoot, new[] { actualTarget }, libBook); //Append Nuget dependencies to libBook
                                     break;
                                 }
+                                else Console.WriteLine($"Warning:nuspecFile not exists, packages dependencies cannot be determined!! {nuspecPath}");
                             }
+                            else Console.WriteLine($"Warning:package not found!! {packageOfVerPathSegment}");
 
-                        if (libPath != null) //libPath should be the sole top lib reference in libBook
-                        {
-                            actualTarget = Path.GetFileName(Path.GetDirectoryName(libPath));
-                            var splittedPath = new List<string>(libPath.Split(PathSepChar));
-                            var idx = splittedPath.IndexOf(package.Key.ToLower());
-                            if (idx > 0) actualVersion = splittedPath[idx + 1];  //special case: microsoft.win32.registry\5.0.0\runtimes\win\lib\netstandard2.0\Microsoft.Win32.Registry.dll
+                            //If any dependency found for any target, stop matching other targets in order(the other targets usually r netstandard).
+                            if (gotit) break;
                         }
-
-                        //if no target matched from actual path, use 'target' specified by user.
-                        actualTarget ??= target;
-                        actualVersion ??= package.Value;
-
-                        //Parse .nuspec file to obtain package dependencies
-                        var packageID = package.Key + PathSepChar + actualVersion;
-                        string packagPath = null;
-                        try
-                        {
-                            packagPath = Directory.GetDirectories(packageRoot, packageID).FirstOrDefault();
-                        }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
-
-                        if (!string.IsNullOrEmpty(packagPath))
-                        {
-                            var nuspecPath = Path.GetFullPath(packagPath + PathSepChar + package.Key.ToLower() + ".nuspec");  //nuespec filename is all lower case
-                            if (File.Exists(nuspecPath))
-                            {
-                                using var stream = File.OpenRead(nuspecPath);
-                                var nuspecDoc = XDocument.Load(stream, LoadOptions.PreserveWhitespace);
-
-                                var nodes = nuspecDoc.Root.Descendants(XSD_NUGETSPEC + "group");
-                                nodes = nodes.FirstOrDefault(g => g.Attribute("targetFramework")?.Value.ToLower().TrimStart('.') == actualTarget)?.Elements();
-                                var myDependencies = nodes?.ToDictionary(kv => kv.Attribute("id")?.Value, kv => kv.Attribute("version")?.Value);
-                                if (myDependencies?.Any() == true) libBook = MatchPackages(allLibPaths, myDependencies, packageRoot, new[] { actualTarget }, libBook); //Append Nuget dependencies to libBook
-                                break;
-                            }
-                            else Console.WriteLine($"Warning:nuspecFile not exists, packages dependencies cannot be determined!! {nuspecPath}");
-                        }
-                        else Console.WriteLine($"Warning:package not found!! {packageID}");
-
-                        //If any dependency found for any target, stop matching other targets(the other targets usually r netstandard).
-                        if (gotit) break;
-                    }
                 }
 
             return libBook;
@@ -594,7 +608,7 @@ namespace BFlatA
 
                                     var outputFile = argOut ?? (projectName + (isDependency ? ".dll" : (IsLinux ? "" : ".exe")));
 
-                                    buildProc.WaitForExit();
+                                    buildProc?.WaitForExit();
                                     Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
 
                                     if (buildProc.ExitCode != 0)
@@ -702,7 +716,7 @@ namespace BFlatA
         public static void PreCacheLibs(string packageRoot)
         {
             Console.WriteLine($"Caching Nuget packages from path:{packageRoot} ...");
-            var libPath = PathSepChar + "lib" + PathSepChar;
+
             int pathCount = 0, libCount = 0;
             var lastCursorPost = Console.GetCursorPosition();
 
@@ -938,21 +952,21 @@ namespace BFlatA
                 foreach (var a in restArgs)
                 {
                     if (tryGetArg(a, "-pr", "--packageroot", out string pr))
-                        if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr);
+                        if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr).TrimEnd(new[] { '/', '\\' });  //the ending PathSep may cause shell script variable invalid like $PRcommon.log/ after replacement by placeholder @
                         else
                         {
                             Console.WriteLine($"Error:PacakgeRoot does not exist or is invalid!");
                             return -1;
                         }
                     else if (tryGetArg(a, "-rp", "--refpath", out string rp))
-                        if (Directory.Exists(rp)) RefPath = Path.GetFullPath(rp);
+                        if (Directory.Exists(rp)) RefPath = Path.GetFullPath(rp).TrimEnd(new[] { '/', '\\' });
                         else
                         {
                             Console.WriteLine($"Error:RefPath does not exist or is invalid!");
                             return -1;
                         }
-                    else if (tryGetArg(a, "-xx", "--exclufx", out string xrtp))
-                        if (Directory.Exists(xrtp)) RuntimePathExclu = Path.GetFullPath(xrtp);
+                    else if (tryGetArg(a, "-xx", "--exclufx", out string xx))
+                        if (Directory.Exists(xx)) RuntimePathExclu = Path.GetFullPath(xx).TrimEnd(new[] { '/', '\\' });
                         else
                         {
                             Console.WriteLine($"Error:RuntimePath does not exist or is invalid!");
@@ -1047,7 +1061,7 @@ namespace BFlatA
                             //Start Building
                             Console.WriteLine($"Building in FLAT mode:{projectName}...");
                             var buildProc = build(ScriptType == ScriptType.RSP ? $"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd"));
-                            buildProc.WaitForExit();
+                            buildProc?.WaitForExit();
                             Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
                         }
                     }
