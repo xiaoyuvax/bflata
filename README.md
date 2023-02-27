@@ -37,7 +37,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 ##  Usage:
 
-      Usage: bflata [build] <csproj file> [options]
+      Usage: bflata [build|build-il] <csproj file> [options]
     
       [build|build-il]                              Build with BFlat in %Path%, with -st option ignored.
                                                     If omitted, generate building script only, with -bm option still valid.
