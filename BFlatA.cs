@@ -746,10 +746,10 @@ namespace BFlatA
 
         public static void ShowHelp()
         {
-            Console.WriteLine($"  Usage: bflata [build] <csproj file> [options]{NL}");
+            Console.WriteLine($"  Usage: bflata [build|build-il] <csproj file> [options]{NL}");
             Console.WriteLine("  [build|build-il]".PadRight(COL_WIDTH) + "Build with BFlat in %Path%, with -st option ignored.");
             Console.WriteLine("".PadRight(COL_WIDTH) + $"If omitted, generate building script only, with -bm option still valid.{NL}");
-            Console.WriteLine("  <.csproj file>".PadRight(COL_WIDTH) + "Must be the 2nd arg if 'build' specified,or the 1st otherwise,only 1 project allowed.");
+            Console.WriteLine("  <.csproj file>".PadRight(COL_WIDTH) + "Must be the 2nd arg if 'build' specified, or the 1st otherwise, only 1 project allowed.");
             Console.WriteLine($"{NL}Options:");
             Console.WriteLine("  -pr|--packageroot:<path to package storage>".PadRight(COL_WIDTH) + $"eg.'C:\\Users\\%username%\\.nuget\\packages' or '$HOME/.nuget/packages'.{NL}");
             Console.WriteLine("  -rp|--refpath:<any path to be related>".PadRight(COL_WIDTH) + "A reference path to generate paths for files in the building script,");
@@ -763,7 +763,7 @@ namespace BFlatA
             Console.WriteLine("  -dd|--depdep".PadRight(COL_WIDTH) + "Deposit Dependencies mode, valid with '-bm:tree',");
             Console.WriteLine("".PadRight(COL_WIDTH) + $"where dependencies of child projects are deposited and served to parent project,");
             Console.WriteLine("".PadRight(COL_WIDTH) + $"as to fulfill any possible reference requirements{NL}");
-            Console.WriteLine("  -t|--target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + $"Build Target, this arg will also be passed to BFlat.{NL}");
+            Console.WriteLine("  -t|--target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + $"Build Target, this option will also be passed to BFlat.{NL}");
             Console.WriteLine("  -o|--out:<File>".PadRight(COL_WIDTH) + $"Output file path for the root project.This option will also be passed to BFlat.{NL}");
             Console.WriteLine("  -xx|--exclufx:<dotnet Shared Framework path>".PadRight(COL_WIDTH) + "If path valid, lib exclus will be extracted from the path.");
             Console.WriteLine("".PadRight(COL_WIDTH) + $"e.g. 'C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App\\7.0.2'");
@@ -771,14 +771,14 @@ namespace BFlatA
             Console.WriteLine("".PadRight(COL_WIDTH) + $"where moniker is specified by -fx option.{NL}");
 
             Console.WriteLine($"{NL}Note:");
-            Console.WriteLine("  Any other args will be passed 'as is' to BFlat, except for '-o.");
-            Console.WriteLine("  For options, the ':' char can also be replaced with space. e.g. -pr:<path> = -pr <path>.");
+            Console.WriteLine("  Any other args will be passed 'as is' to BFlat, except for '-o'.");
+            Console.WriteLine("  For options, the ':' char can also be replaced with a space. e.g. -pr:<path> = -pr <path>.");
             Console.WriteLine("  Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.");
-            Console.WriteLine("  The filenames for the building script are one of 'build.rsp,build.cmd,build.sh' and the .rsp file allows larger arguments and is prefered.");
+            Console.WriteLine("  The filename for the building script are one of 'build.rsp,build.cmd,build.sh' and the .rsp file allows larger arguments and is prefered.");
             Console.WriteLine("  Once '<moniker>.exclu' file is saved, you can use it for any later build, and a 'packages.exclu' is always loaded and can be used to store extra shared exclus, where 'exclu' is the short for 'Excluded Packages'.");
             Console.WriteLine($"{NL}Examples:");
             Console.WriteLine("  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx=net7.0 -st:bat -bm:treed  <- only generate BAT script which builds project tree orderly with Deposit Dependencies.");
-            Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -st:bat --arch x64  <- build in FLAT mode with '--arch x64' passed to BFlat and -st:bat ignored.");
+            Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -st:bat --arch x64  <- build in FLAT mode with default target at .net7.0 and '--arch x64' passed to BFlat while the option -st:bat ignored.");
         }
 
         public static string ToSysPathSep(string path)
