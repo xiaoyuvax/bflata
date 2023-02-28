@@ -2,7 +2,7 @@
   "profiles": {
     "BFlatA": {
       "commandName": "Project",
-      "commandLineArgs": "-? C:\\Users\\Xiaoyu\\source\\repos\\LoraMonitor\\branches\\1.7-MemoryPack\\ObjectPoolDemo\\ObjectPoolDemo\\ObjectPoolDemo.csproj  -fx:net7.0"
+      "commandLineArgs": "build D:\\Repos\\LoraMonitor\\branches\\1.7-MemoryPack\\LoraServer\\LoraServer.csproj -pr:C:\\Users\\Administrator.SP\\.nuget\\packages\\ -bm:treed --os:linux"
     }
   }
 }

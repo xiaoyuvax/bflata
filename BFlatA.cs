@@ -10,7 +10,7 @@ using System.Xml;
 using System.Xml.Linq;
 
 #if BFLAT
-[assembly: System.Reflection.AssemblyVersionAttribute("1.1.0.2")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.1.0.3")]
 #endif
 
 namespace BFlatA
@@ -213,12 +213,13 @@ namespace BFlatA
 
         public static void LoadCache()
         {
-            var lastCursorPost = Console.GetCursorPosition();
             List<string> cache = new();
             int count = 0;
             try
             {
                 using var st = new StreamReader(File.OpenRead(CACHE_FILENAME));
+                Console.Write($"Libs loaded:");
+                var lastCursorPost = Console.GetCursorPosition();
                 while (!st.EndOfStream)
                 {
                     Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
@@ -228,7 +229,7 @@ namespace BFlatA
                     {
                         cache.Add(line);
                         count++;
-                        Console.Write($"Libs loaded:{count}");
+                        Console.Write(count);
                     }
                 }
                 LibCache = cache.DoExclude().ToArray();
@@ -248,11 +249,12 @@ namespace BFlatA
                       var excluFN = Path.GetFileNameWithoutExtension(i).ToLower();
                       return excluFN == TargetFx || excluFN == CUSTOM_EXCLU_FILENAME_WITHOUT_EXT;
                   }).ToArray();
-                if (excluFiles.Length == 0) Console.WriteLine("No Exclu files found!");
+                if (excluFiles.Length == 0) Console.Write("No Exclu files found!");  //no NL here
                 else foreach (string f in excluFiles)
                     {
                         count = 0;
                         Console.WriteLine($"Exclu file found:.{PathSepChar}{Path.GetFileName(f)}");
+                        Console.Write($"Exclus loaded:");
                         (int Left, int Top) = Console.GetCursorPosition();
                         using var st = new StreamReader(File.OpenRead(f));
                         while (!st.EndOfStream)
@@ -264,10 +266,12 @@ namespace BFlatA
                                 count++;
                             }
                             Console.SetCursorPosition(Left, Top);
-                            Console.WriteLine($"Exclus loaded:{count}");
+                            Console.Write(count);
                         }
                         LibExclu = exclude.ToArray();
                     }
+
+                Console.WriteLine();  //NL here
             }
             catch (Exception e) { Console.WriteLine(e.Message); }
             Console.WriteLine("");
@@ -575,7 +579,7 @@ namespace BFlatA
                                 }
                                 else if (err != 0)
                                 {
-                                    Console.WriteLine($"Error:fairelure building dependency:{projectName}=>{innerProjectName}!!! ");
+                                    Console.WriteLine($"Error:failure building dependency:{projectName}=>{innerProjectName}!!! ");
                                     break; //any dependency failure,break!
                                 }
                             }
@@ -585,7 +589,8 @@ namespace BFlatA
                             {
                                 string myScript = "";
                                 string argOut = isDependency ? null : BFlatArgOut;
-                                refProjectBook.AddRange(myRefProject);
+
+                                refProjectBook?.AddRange(myRefProject);
                                 string getRefProjectLines() => string.Join("", (DepositLib ? refProjectBook : myRefProject).Select(i => buildMode == BuildMode.Tree ? lineFeed + i : i + lineFeed));
 
                                 if (UseBuild)
@@ -858,19 +863,26 @@ namespace BFlatA
         {
             Console.WriteLine($"- Executing building script: {(myScript.Length > 22 ? myScript[..22] : myScript)}...");
             Process buildProc = null;
-            try
+            if (!string.IsNullOrEmpty(myScript))
             {
-                if (myScript.StartsWith(COMPILER))
+                try
                 {
-                    var paths = Environment.GetEnvironmentVariable("path").Split(IsLinux ? ':' : ';');
-                    var compilerPath = paths.FirstOrDefault(i => File.Exists(i + PathSepChar + (IsLinux ? COMPILER : COMPILER + ".exe")));
-                    if (Directory.Exists(compilerPath)) buildProc = Process.Start(compilerPath + PathSepChar + COMPILER, myScript.Remove(0, COMPILER.Length));
-                    else Console.WriteLine("Error:" + COMPILER + " doesn't exist in PATH!");
-                }
-                else buildProc = Process.Start(myScript);
-            }
-            catch (Exception ex) { Console.WriteLine(ex.Message); }
+                    if (myScript.StartsWith(COMPILER))
+                    {
+                        var paths = Environment.GetEnvironmentVariable("PATH").Split(IsLinux ? ':' : ';') ?? new[] { "./" };
 
+                        var compilerPath = paths.FirstOrDefault(i => File.Exists(i + PathSepChar + (IsLinux ? COMPILER : COMPILER + ".exe")));
+                        if (Directory.Exists(compilerPath))
+                        {
+                            buildProc = Process.Start(compilerPath + PathSepChar + COMPILER, myScript.Remove(0, COMPILER.Length));
+                        }
+                        else Console.WriteLine("Error:" + COMPILER + " doesn't exist in PATH!");
+                    }
+                    else buildProc = Process.Start(myScript);
+                }
+                catch (Exception ex) { Console.WriteLine(ex.Message); }
+            }
+            else Console.WriteLine($"Error:building script is emtpy!");
             return buildProc;
         }
 
@@ -946,7 +958,7 @@ namespace BFlatA
                 }
 
                 //rearrange restArgs
-                restArgs = string.Join(' ', restArgs).Split("-", StringSplitOptions.RemoveEmptyEntries).Select(i => '-' + i.Trim()).ToArray();
+                restArgs = (" " + string.Join(' ', restArgs)).Split(" -", StringSplitOptions.RemoveEmptyEntries).Select(i => '-' + i.Trim()).ToArray();
 
                 //process options
                 foreach (var a in restArgs)
@@ -1061,8 +1073,11 @@ namespace BFlatA
                             //Start Building
                             Console.WriteLine($"Building in FLAT mode:{projectName}...");
                             var buildProc = build(ScriptType == ScriptType.RSP ? $"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd"));
-                            buildProc?.WaitForExit();
-                            Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
+                            if (buildProc != null)
+                            {
+                                buildProc.WaitForExit();
+                                Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
+                            }
                         }
                     }
                 }
