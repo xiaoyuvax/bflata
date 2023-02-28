@@ -47,7 +47,8 @@ namespace BFlatA
     internal static class BFlatA
     {
         public const char ARG_EVALUATION_CHAR = ':';
-        public const string CACHE_FILENAME = "packages.cache";
+        public const string LIB_CACHE_FILENAME = "packages.cache";
+        public const string NUSPEC_CACHE_FILENAME = "nuspecs.cache";
         public const int COL_WIDTH = 48;
         public const string COMPILER = "bflat";
         public const string CUSTOM_EXCLU_FILENAME_WITHOUT_EXT = "packages";
@@ -61,7 +62,9 @@ namespace BFlatA
         public static string BFlatArgOut = null;
         public static BuildMode BuildMode = BuildMode.None;
         public static bool DepositLib = false;
-        public static string[] LibCache = Array.Empty<string>();
+        public static bool UseVerbose = false;
+        public static List<string> LibCache = new();
+        public static List<string> NuspecCache = new();
         public static string[] LibExclu = Array.Empty<string>();
         public static string OutputType = "Exe";
         public static string PackageRoot = "";
@@ -211,14 +214,14 @@ namespace BFlatA
             return false;
         }
 
-        public static void LoadCache()
+        public static List<string> LoadCache(string fileName)
         {
             List<string> cache = new();
             int count = 0;
             try
             {
-                using var st = new StreamReader(File.OpenRead(CACHE_FILENAME));
-                Console.Write($"Libs loaded:");
+                using var st = new StreamReader(File.OpenRead(fileName));
+                Console.Write($"Cache items loaded:");
                 var lastCursorPost = Console.GetCursorPosition();
                 while (!st.EndOfStream)
                 {
@@ -232,10 +235,12 @@ namespace BFlatA
                         Console.Write(count);
                     }
                 }
-                LibCache = cache.DoExclude().ToArray();
+                return cache.DoExclude().ToList();
             }
             catch (Exception e) { Console.WriteLine(e.Message); }
             Console.WriteLine("");
+
+            return cache;
         }
 
         public static void LoadExclu()
@@ -278,10 +283,10 @@ namespace BFlatA
         }
 
         public static List<string> MatchPackages(string[] allLibPaths,
-                                                                     Dictionary<string, string> packageReferences,
-                                                     string packageRoot,
-                                                     IEnumerable<string> multiTargets = null,
-                                                     List<string> libBook = null)
+                                                 Dictionary<string, string> packageReferences,
+                                                 string packageRoot,
+                                                 IEnumerable<string> multiTargets = null,
+                                                 List<string> libBook = null)
         {
             libBook ??= new();
             bool gotit = false;
@@ -292,18 +297,18 @@ namespace BFlatA
                     gotit = false;
 
                     // string requiredLibPath = null, compatibleLibPath = null;
-                    IEnumerable<string> matchedLibPaths = null;
+                    IEnumerable<string> matchedPackageOfVerPaths = null;
                     string actualTarget = null, actualVersion = null, packageNameLo = null, packagePathSegment = null;
                     packageNameLo = package.Key.ToLower();
                     packagePathSegment = PathSepChar + packageNameLo + PathSepChar;
                     //Check Exclu first
                     if (LibExclu.Contains(packageNameLo))
                     {
-                        Console.WriteLine($"Info:ignore package Exclu:{packageNameLo}");
+                        if (UseVerbose) Console.WriteLine($"Info:ignore package Exclu:{packageNameLo}");
                     }
                     else foreach (var target in multiTargets)
                         {
-                            matchedLibPaths = null;
+                            matchedPackageOfVerPaths = null;
                             actualTarget = null;
 
                             int[] loVerReq = Array.Empty<int>(), hiVerReq = Array.Empty<int>();
@@ -324,7 +329,7 @@ namespace BFlatA
 
                             if (loVerReq.Length == hiVerReq.Length) // can only compare when lengths equal.
                             {
-                                matchedLibPaths = allLibPaths.Where(i =>
+                                matchedPackageOfVerPaths = allLibPaths.Where(i =>
                                 {
                                     var splittedPath = new List<string>(i.Split(PathSepChar));
                                     var idx = splittedPath.IndexOf(packageNameLo);
@@ -345,22 +350,23 @@ namespace BFlatA
                             }
 
                             //deduplication of libs references (in Flat mode, dependencies may not be compatible among projects, the top version will be kept)
-                            string libPath = null;
-                            if (matchedLibPaths != null) foreach (var d in matchedLibPaths)
+                            string libPath = null, absLibPath = null;
+
+                            if (matchedPackageOfVerPaths != null) foreach (var d in matchedPackageOfVerPaths)
                                 {
-                                    libPath = d + PathSepChar + package.Key + ".dll";
+                                    absLibPath = Path.GetFullPath(d + PathSepChar + package.Key + ".dll");
 
                                     //get case-sensitive file path
                                     try
                                     {
-                                        libPath = Directory.GetFiles(d).FirstOrDefault(i => i.ToLower() == libPath.ToLower());
+                                        absLibPath = Directory.GetFiles(d).FirstOrDefault(i => i.ToLower() == absLibPath.ToLower());
                                     }
                                     catch (Exception ex) { Console.WriteLine(ex.Message); }
 
-                                    if (libPath != null)
+                                    if (absLibPath != null)
                                     {
                                         //Incase packageRoot not given.
-                                        libPath = string.IsNullOrEmpty(packageRoot) ? libPath : libPath.Replace(packageRoot, "@");
+                                        libPath = string.IsNullOrEmpty(packageRoot) ? absLibPath : absLibPath.Replace(packageRoot, "@");
                                         //Package name might be case-insensitive in .csproj file, while path will be case-sensitive on Linux.
                                         var duplicatedPackages = libBook.Where(i => i.Contains(packagePathSegment));
 
@@ -392,17 +398,19 @@ namespace BFlatA
                             actualVersion ??= package.Value;
 
                             //Parse .nuspec file to obtain package dependencies, while libPath doesn't have to exist.
-                            string packageOfVerPathSegment = packagePathSegment + actualVersion + PathSepChar;
-                            string packagPath = null;
-                            try
+                            //Note:some package contains no lib, but .neuspec file with reference to other packages.
+                            string packageOfVerPathSegment = packagePathSegment + actualVersion;
+                            string packagOfVerPath = null;
+                            if (gotit)
                             {
-                                packagPath = allLibPaths.FirstOrDefault(i => i.Contains(packageOfVerPathSegment))?.Split(LibPathSegment).FirstOrDefault();
+                                var firstHalf = absLibPath.Split(LibPathSegment).FirstOrDefault();
+                                if (firstHalf.EndsWith(packageOfVerPathSegment)) packagOfVerPath = firstHalf;
                             }
-                            catch (Exception ex) { Console.WriteLine(ex.Message); }
+                            else if (!LibExclu.Contains(packageNameLo)) packagOfVerPath = NuspecCache.FirstOrDefault(i => i.EndsWith(packageOfVerPathSegment));
 
-                            if (!string.IsNullOrEmpty(packagPath))
+                            if (!string.IsNullOrEmpty(packagOfVerPath))
                             {
-                                var nuspecPath = Path.GetFullPath(packagPath + PathSepChar + packageNameLo + ".nuspec");  //nuespec filename is all lower case
+                                var nuspecPath = Path.GetFullPath(packagOfVerPath + PathSepChar + packageNameLo + ".nuspec");  //nuespec filename is all lower case
                                 if (File.Exists(nuspecPath))
                                 {
                                     using var stream = File.OpenRead(nuspecPath);
@@ -410,17 +418,17 @@ namespace BFlatA
 
                                     var nodes = nuspecDoc.Root.Descendants(XSD_NUGETSPEC + "group");
                                     nodes = nodes.FirstOrDefault(g => g.Attribute("targetFramework")?.Value.ToLower().TrimStart('.') == actualTarget)?.Elements();
-                                    var myDependencies = nodes?.ToDictionary(kv => kv.Attribute("id")?.Value, kv => kv.Attribute("version")?.Value);
-                                    if (myDependencies?.Any() == true) libBook = MatchPackages(allLibPaths, myDependencies, packageRoot, new[] { actualTarget }, libBook); //Append Nuget dependencies to libBook
+                                    var myNugetPackages = nodes?.ToDictionary(kv => kv.Attribute("id")?.Value, kv => kv.Attribute("version")?.Value);
+                                    if (myNugetPackages?.Any() == true) libBook = MatchPackages(allLibPaths, myNugetPackages, packageRoot, new[] { actualTarget }, libBook); //Append Nuget dependencies to libBook
                                     break;
                                 }
                                 else Console.WriteLine($"Warning:nuspecFile not exists, packages dependencies cannot be determined!! {nuspecPath}");
                             }
-                            else Console.WriteLine($"Warning:package not found!! {packageOfVerPathSegment}");
+                            else Console.WriteLine($"Warning:package referenced not found!! {packageNameLo} {actualVersion}");
 
                             //If any dependency found for any target, stop matching other targets in order(the other targets usually r netstandard).
                             if (gotit) break;
-                        }
+                        }                    
                 }
 
             return libBook;
@@ -722,29 +730,27 @@ namespace BFlatA
         {
             Console.WriteLine($"Caching Nuget packages from path:{packageRoot} ...");
 
-            int pathCount = 0, libCount = 0;
+            int pathCount = 0;
             var lastCursorPost = Console.GetCursorPosition();
-
+            bool dontCacheLib = LibCache.Any();
+            bool dontCacheNuspec = NuspecCache.Any();
             try
             {
-                if (!string.IsNullOrEmpty(packageRoot)) LibCache = Directory.GetDirectories(packageRoot, "*", SearchOption.AllDirectories)
-                   .Where(i =>
-                   {
-                       pathCount++;
-                       Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
-                       Console.Write($"Libs found:{libCount}/Folders searched:{pathCount}");
-                       var splitted = i.Split(PathSepChar, StringSplitOptions.RemoveEmptyEntries);
-                       if (splitted[^2].ToLower() == "lib")
-                       {
-                           libCount++;
-                           return true;
-                       }
-                       else return false;
-                   }).DoExclude().OrderByDescending(i => i).ToArray();
+                if (!string.IsNullOrEmpty(packageRoot))
+                    foreach (var i in Directory.GetDirectories(packageRoot, "*", SearchOption.AllDirectories).DoExclude())
+                    {
+                        pathCount++;
+                        Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
+                        Console.Write($"Libs found:{LibCache.Count}/Nuspec found:{NuspecCache.Count}/Folders searched:{pathCount}");
+                        var splitted = i.Split(PathSepChar, StringSplitOptions.RemoveEmptyEntries);
+
+                        if (!dontCacheLib && splitted[^2].ToLower() == "lib") LibCache.Add(i);
+                        else if (!dontCacheNuspec && Directory.GetFiles(i, "*.nuspec").Any()) NuspecCache.Add(i);
+                    };
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
 
-            Console.WriteLine($"{NL}Found {LibCache.Length} nuget packages!");
+            Console.WriteLine($"{NL}Found {LibCache.Count} nuget packages!");
         }
 
         public static string[] RemoveArg(string[] restParams, string a) => restParams.Except(new[] { a }).ToArray();
@@ -774,6 +780,7 @@ namespace BFlatA
             Console.WriteLine("".PadRight(COL_WIDTH) + $"e.g. 'C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App\\7.0.2'");
             Console.WriteLine("".PadRight(COL_WIDTH) + $"and extracted exclus will be saved to '<moniker>.exclu' for further use.");
             Console.WriteLine("".PadRight(COL_WIDTH) + $"where moniker is specified by -fx option.{NL}");
+            Console.WriteLine("  --verbose".PadRight(COL_WIDTH) + "Enable verbose logging");
 
             Console.WriteLine($"{NL}Note:");
             Console.WriteLine("  Any other args will be passed 'as is' to BFlat, except for '-o'.");
@@ -798,13 +805,13 @@ namespace BFlatA
 
         public static int[] Ver2IntArray(string verStr) => verStr.Split('.').Select(i => int.TryParse(i, out int n) ? n : 0).ToArray();
 
-        public static void WriteCache()
+        public static void WriteCache(string fileName, List<string> cache)
         {
             try
             {
-                using var st = File.Create(CACHE_FILENAME);
-                foreach (var l in LibCache) st.Write(Encoding.UTF8.GetBytes(l + NL));
-                Console.WriteLine($"Package cache saved!");
+                using var st = File.Create(fileName);
+                foreach (var l in cache) st.Write(Encoding.UTF8.GetBytes(l + NL));
+                Console.WriteLine($"{fileName} saved!");
             }
             catch (Exception e) { Console.WriteLine(e.Message); }
         }
@@ -993,6 +1000,10 @@ namespace BFlatA
                         BFlatArgOut = o;
                         restArgs = RemoveArg(restArgs, a);
                     }
+                    else if (a.ToLower() == "--verbose")
+                    {
+                        UseVerbose = true;
+                    }
                     else if (a.ToLower() == "-dd" || a.ToLower() == "--depdep")
                     {
                         DepositLib = true;
@@ -1040,22 +1051,29 @@ namespace BFlatA
                     WriteExclu(TargetFx);
                 }
                 Console.WriteLine($"--LIB CACHE---------------------------");
-                if (File.Exists(CACHE_FILENAME))
+                if (File.Exists(LIB_CACHE_FILENAME))
                 {
                     Console.WriteLine($"Package cache found!");
-                    LoadCache();
+                    LibCache = LoadCache(LIB_CACHE_FILENAME);
                 }
-                if (LibCache.Length == 0)
+                if (File.Exists(NUSPEC_CACHE_FILENAME))
+                {
+                    Console.WriteLine($"{NL}Nuspec cache found!");
+                    NuspecCache = LoadCache(NUSPEC_CACHE_FILENAME);
+                }
+
+                if (!string.IsNullOrEmpty(PackageRoot) && (LibCache.Count == 0 || NuspecCache.Count == 0))
                 {
                     PreCacheLibs(PackageRoot);
-                    if (LibCache.Length > 0) WriteCache();
+                    if (LibCache.Count > 0) WriteCache(LIB_CACHE_FILENAME, LibCache);
+                    if (NuspecCache.Count > 0) WriteCache(NUSPEC_CACHE_FILENAME, NuspecCache);
                 }
                 Console.WriteLine();
 
                 //Parse project and all project references recursively.
                 if (UseBuild) Console.WriteLine($"--BUILDING----------------------------");
                 else Console.WriteLine($"--SCRIPTING---------------------------");
-                var err = ParseProject(ProjectFile, LibCache, TargetFx, PackageRoot, restArgs, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook, refProjectBook, false);
+                var err = ParseProject(ProjectFile, LibCache.ToArray(), TargetFx, PackageRoot, restArgs, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook, refProjectBook, false);
 
                 if (err == 0)
                 {
