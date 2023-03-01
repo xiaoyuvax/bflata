@@ -2,8 +2,10 @@
 
 
 # BFlatA
-A wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
 
+`BFlatA Purpose: Write your program in VS, and Build it Flat` (with bflat)
+
+BFlatA is a wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
  - Referenced projects
  - Nuget package dependencies
  - Embedded resources  
