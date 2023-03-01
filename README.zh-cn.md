@@ -1,14 +1,16 @@
 # BFlatA
 
-BFlatA 是一个用于递归构建带有以下内容的 `.csproj` 文件的包装器/构建脚本生成器：
+目的：VS写工程，打平编译（成本机代码）。
 
-- 引用的项目
-- Nuget 包依赖项
+BFlatA 是套壳BFlat（C#本机代码编译器）用于递归构建带有以下内容的 `.csproj` 文件的包装器/构建脚本生成器：
+
+- 引用的项目（不管引用关系有多复杂）
+- Nuget 包依赖项（包括包的依赖）
 - 嵌入式资源
 
-您可以在 [flattened.net](https://flattened.net) 找到原生 C# 编译器 BFlat。
+您可以在 [flattened.net](https://flattened.net) 下载原生 C# 编译器 BFlat。
 
-BFlat的一个问题相关：https://github.com/bflattened/bflat/issues/61
+本工程与BFlat的这个问题相关：https://github.com/bflattened/bflat/issues/61
 
 更新 23-02-26 (V1.1.0.0)：
 - 添加了 Exclu 机制
