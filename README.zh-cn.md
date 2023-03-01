@@ -1,14 +1,16 @@
 # BFlatA
 
-BFlatA 是一个用于递归构建带有以下内容的 `.csproj` 文件的包装器/构建脚本生成器：
+目的：VS写工程，打平编译（成本机代码）。
 
-- 引用的项目
-- Nuget 包依赖项
+BFlatA 是套壳BFlat（C#本机代码编译器）用于递归构建带有以下内容的 `.csproj` 文件的包装器/构建脚本生成器：
+
+- 引用的项目（不管引用关系有多复杂）
+- Nuget 包依赖项（包括包的依赖）
 - 嵌入式资源
 
-您可以在 [flattened.net](https://flattened.net) 找到原生 C# 编译器 BFlat。
+您可以在 [flattened.net](https://flattened.net) 下载原生 C# 编译器 BFlat。
 
-BFlat的一个问题相关：https://github.com/bflattened/bflat/issues/61
+本工程与BFlat的这个问题相关：https://github.com/bflattened/bflat/issues/61
 
 更新 23-02-26 (V1.1.0.0)：
 - 添加了 Exclu 机制
@@ -21,11 +23,12 @@ BFlat的一个问题相关：https://github.com/bflattened/bflat/issues/61
 > PublicKeyToken=b03f5f7f11d50a3a'
 
 BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。实际上，Exclu 意味着被排除的包。BFlatA 支持从 Dotnet 运行时中提取要排除的名称，更准确地说是特定的共享框架，例如 Microsoft.NETCore.App（这是 BFlat 目前包含的内容），生成 ".exclu" 文件，该文件可以通过使用 `-xx` 选项（使用 `-fx` 指定的 monker 名称）从文件中保存/加载 Exclus，此外，如果存在，则始终会加载 "packages.exclu" 文件，在其中可以放置自定义 Exclus。
+我在存储库中提供了一个名为net7.0.exclu的文件作为net7.0的默认排除文件，它是BFlata和BFlat的默认目标。如果您不想从Dotnet运行时中自己提取排除项（使用-xx选项），则可以将其复制到您的工作目录中。
 
 - 'build-il' 现在是允许的。此构建模式与 BFlat 的构建模式一致，并且仅影响根项目。依赖项目将始终在启用 'build-il' 的 TREE 模式下进行构建。
 - 引入了一个新的构建模式 `-bm:treed`，提供了一个 `-bm:tree -dd` 的快捷方式，简单易懂。
-- 支持 DFlat 样式的参数，现在可以使用空格或 ":" 来评估参数值。
-- BFlat 的 `-o|--out<file>` 选项现在被 BFlatA 接管，并将在生成的脚本中得到正确的处理。至少，它不会被传递给每个引用的项目。
+- 现在支持BFlat样式参数，您可以使用空格或“:”来评估参数值。
+- BFlat的'-o|--out<file>'选项现在被 BFlatA 接管，以便在生成的脚本中正确地编写脚本。至少，它不会被传递给每个引用的项目。
 
 更新 23-02-24： 
 - 支持响应文件(.rsp)，解决了“参数太长”的问题。.rsp脚本将作为BFlatA的默认构建脚本格式。您可以像 `bflat build @build.rsp` 一样使用生成的 build.rsp 文件来构建一个扁平的项目。
@@ -35,7 +38,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 
 ##  使用说明：
-		Usage: bflata [build] <csproj文件> [选项]
+		Usage: bflata [build|build-il] <csproj file> [options]
 
 		[build|build-il]                              使用 %Path% 中的 BFlat 进行构建，忽略 -st 选项。
 													  如果省略，则仅生成构建脚本，但 -bm 选项仍然有效。
@@ -77,7 +80,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 		         一旦保存了“<moniker>.exclu”文件，您可以将其用于任何后续构建，并且“packages.exclu”始终加载，可用于存储额外的共享排除项，其中“exclu”是“Excluded Packages”的缩写。
 	    示例：
 		         bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -st:bat -bm:treed  // 仅生成构建脚本，按项目树的顺序使用 Deposit Dependencies。
-		         bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -st:bat --arch x64  // 使用 FLAT 模式构建，传递 '--arch x64' 给 BFlat，并忽略 -st:bat。
+		         bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -st:bat --arch x64  // 该命令使用 FLAT 模式进行构建，并且默认的构建目标是 .NET 7.0。--arch x64 选项被传递给 BFlat 以指定构建的目标架构为 x64，而 -st:bat 选项则被忽略。
 		
 
 ## 从源代码编译：

@@ -221,7 +221,7 @@ namespace BFlatA
             try
             {
                 using var st = new StreamReader(File.OpenRead(fileName));
-                Console.Write($"Cache items loaded:");
+                Console.Write($"Items loaded:");
                 var lastCursorPost = Console.GetCursorPosition();
                 while (!st.EndOfStream)
                 {
