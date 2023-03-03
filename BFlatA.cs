@@ -10,7 +10,7 @@ using System.Xml;
 using System.Xml.Linq;
 
 #if BFLAT
-[assembly: System.Reflection.AssemblyVersionAttribute("1.2.0.0")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.2.0.1")]
 #endif
 
 namespace BFlatA
@@ -61,7 +61,7 @@ namespace BFlatA
         public static readonly string WorkingPath = Directory.GetCurrentDirectory();
         public static readonly XNamespace XSD_NUGETSPEC = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
         public static string Architecture = "x64";
-        public static string BFlatArgOut = null;
+        public static string outputFile = null;
         public static BuildMode BuildMode = BuildMode.None;
         public static bool DepositLib = false;
         public static List<string> LibCache = new();
@@ -676,7 +676,7 @@ namespace BFlatA
                             if (err == 0 && buildMode == BuildMode.Tree)
                             {
                                 string myScript = "";
-                                string argOut = isDependency ? null : BFlatArgOut;
+                                string argOutputFile = projectName + (isDependency ? ".dll" : (IsLinux ? "" : ".exe"));
 
                                 refProjectBook?.AddRange(myRefProject.Except(refProjectBook));
                                 string getRefProjectLines() => string.Join("", (DepositLib ? refProjectBook : myRefProject).Select(i => buildMode == BuildMode.Tree ? lineFeed + i : i + lineFeed));
@@ -685,7 +685,7 @@ namespace BFlatA
 
                                 if (UseBuild)
                                 {
-                                    myScript = GenerateScript(projectName, restArg, codeBook, libBook, myFlatResBook, ScriptType.RSP, buildMode, packageRoot, outputType, isDependency, argOut);
+                                    myScript = GenerateScript(projectName, restArg, codeBook, libBook, myFlatResBook, ScriptType.RSP, buildMode, packageRoot, outputType, isDependency, argOutputFile);
                                     myScript += getRefProjectLines();
 
                                     Process buildProc = null;
@@ -701,8 +701,6 @@ namespace BFlatA
                                         //under build mode, scriptType is always RSP
                                     }
 
-                                    var outputFile = argOut ?? (projectName + (isDependency ? ".dll" : (IsLinux ? "" : ".exe")));
-
                                     buildProc?.WaitForExit();
                                     Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
 
@@ -712,12 +710,12 @@ namespace BFlatA
                                         return buildProc.ExitCode;
                                     }
                                     //Must wait for dependecy to be compiled
-                                    if (!SpinWait.SpinUntil(() => IsReadable(outputFile), 20000)) Console.WriteLine($"Error:building timeout!");
+                                    if (!SpinWait.SpinUntil(() => IsReadable(argOutputFile), 10000)) Console.WriteLine($"Error:building timeout!");
                                     else Console.WriteLine("Script execution completed!");
                                 }
                                 else
                                 {
-                                    myScript = GenerateScript(projectName, restArg, codeBook, libBook, myFlatResBook, scriptType, buildMode, packageRoot, outputType, isDependency, argOut);
+                                    myScript = GenerateScript(projectName, restArg, codeBook, libBook, myFlatResBook, scriptType, buildMode, packageRoot, outputType, isDependency, argOutputFile);
                                     myScript += getRefProjectLines();
                                     Console.WriteLine($"Appending Script:{projectName}...{Environment.NewLine}");
                                     script = AppendScriptBlock(script, myScript, scriptType);
@@ -1029,6 +1027,7 @@ namespace BFlatA
             ScriptType.BAT => '\\',
             _ => PathSepChar,
         };
+
         private static int Main(string[] args)
         {
             List<string> restArgs;
@@ -1048,12 +1047,17 @@ namespace BFlatA
             {
                 value = null;
                 var loa = a.ToLower();
-                if ((!string.IsNullOrEmpty(shortName) && (loa.StartsWith(shortName + ARG_EVALUATION_CHAR) || loa.StartsWith(shortName + ' '))) ||
-                    (!string.IsNullOrEmpty(longName) && (loa.StartsWith(longName + ARG_EVALUATION_CHAR) || loa.StartsWith(longName + ' '))))
+                if (!string.IsNullOrEmpty(shortName) && (loa.StartsWith(shortName + ARG_EVALUATION_CHAR) || loa.StartsWith(shortName + ' ')))
                 {
                     //restParams for BFlat
                     restArgs.Remove(a);
                     value = a[(shortName.Length + 1)..];
+                    return true;
+                }
+                else if (!string.IsNullOrEmpty(longName) && (loa.StartsWith(longName + ARG_EVALUATION_CHAR) || loa.StartsWith(longName + ' ')))
+                {
+                    restArgs.Remove(a);
+                    value = a[(longName.Length + 1)..];
                     return true;
                 }
                 return false;
@@ -1129,7 +1133,7 @@ namespace BFlatA
                     else if (tryGetArg(a, "", "--os", out string os)) OS = os.ToLower();
                     else if (tryGetArg(a, "-o", "--out", out string o)) //hijack -o arg of BFlat, and it shall not be passed to denpendent project
                     {
-                        BFlatArgOut = o;
+                        outputFile = o;
                         restArgs.Remove(a);
                     }
                     else if (a.ToLower() == "--verbose")
@@ -1217,8 +1221,10 @@ namespace BFlatA
                     //overwrite script under Flat Mode, and explicitly specify BuldMode.Tree as to generate the header part.
                     if (BuildMode != BuildMode.Tree)
                     {
+                        //set default outputfile
+                        outputFile ??= projectName + (IsLinux ? "" : ".exe");
                         Dictionary<string, string> myFlatResBook = FlattenResX(resBook, projectName);
-                        script = GenerateScript(projectName, restArgs, codeBook, libBook, myFlatResBook, ScriptType, BuildMode.Tree, PackageRoot, OutputType, false, BFlatArgOut);
+                        script = GenerateScript(projectName, restArgs, codeBook, libBook, myFlatResBook, ScriptType, BuildMode.Tree, PackageRoot, OutputType, false, outputFile);
                     }
 
                     if (!string.IsNullOrEmpty(script))
