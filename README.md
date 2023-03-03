@@ -62,18 +62,30 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 	  -st|--scripttype:<rsp|bat|sh>                 Response File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.
 
-	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree',
+	  --resgen:<path to resgen.exe>                 Path to Resource Generator(e.g. ResGen.exe),which compiles .resx file to binary.
+
+
+	Shared Options(will also be passed to BFlat):
+	  --target:<Exe|Shared|WinExe>                  Build Target.default:by bflat
+
+	  --os <Windows|Linux|Uefi>                     Build Target.default:Windows.
+
+	  --arch <x64|arm64|x86|...>                    Platform archetecture.default:x64.
+
+	  -o|--out:<File>                               Output file path for the root project.
+
+	  --verbose                                     Enable verbose logging
+
+	Obsolete Options:
+	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree', equivalently '-bm:treed',
 							where dependencies of child projects are deposited and served to parent project,
 							as to fulfill any possible reference requirements
 
-	  -t|--target:<Exe|Shared|WinExe>               Build Target, this option will also be passed to BFlat.
-
-	  -o|--out:<File>                               Output file path for the root project.This option will also be passed to BFlat.
-
 	  -xx|--exclufx:<dotnet Shared Framework path>  If path valid, lib exclus will be extracted from the path.
 							e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
-							and extracted exclus will be saved to '<moniker>.exclu' for further use.                                                where moniker is specified by -fx option.
+							and extracted exclus will be saved to '<moniker>.exclu' for further use, where moniker is specified by -fx option.
 
+							If this path not explicitly specified, BFlatA will search -pr:<path> and -fx:<framework> for Exclus,automatically.
 
 	Note:
 	  Any other args will be passed 'as is' to BFlat, except for '-o'.
@@ -99,7 +111,10 @@ of course BFlat is prefered to build the program entirely to native code(without
 
 - The "--buildmode:tree" option builds by reference hierachy, but the referenced projects are actually built with 'bflat build-il' option, which produces IL assemblies rather than native code, and only the root project is to be built in native code. This is because so far BFlat is not known to produce native .dll lib which can be referenced with -r option (if it will do so someday, or known to be able to do so, the TREE mode would actually work for native code then). Note: TREE mode is useful dealing with the scenarios that Nuget package uses dependencies whose versions are not compatible with the parent project (in FLAT mode, as would cause errors), for the lib is compiled independently. Moreover with the `-dd`(Deposit Dependency) option, parent project who indirectly use child project's dependencies might also be solved. 
 - The "--buildmode:flat" option (default, if -bm not served) generates flattened building script which incorproate all code files, package references and resources of all referenced .csproj files into one, but this solution cannot solve the issue of version incompatibility of dependencies from different projects, especially secondary dependencies required by Nuget packages. Version inconsistency of projects can be eliminated by making all projects reference the same packages of the same version, but secondary dependencies among precompiled packages are various and not changeable	
-- Parsing resources in .resx file is not implemented yet, for lacking of knowledge of how BFlat handles resources described in .resx file.
+- Although current version support calling resgen.exe (specified by `--resgen` option) to compiler .resx file to embeddable binary(.resources) and reference'em from temp directory at build-time and namespace for resources would be adopted from coressponding code files, eg. myForm.cs for myForm.resx and Resources.Designer.cs for Resources.resx, error message like below would still occur. It is probably due to bflat internal settings, as reported here: https://github.com/bflattened/bflat/issues/92
+![image](https://user-images.githubusercontent.com/6511226/222661726-92f1afb7-ba9f-4e3b-8c7e-f25148119edc.png)
+
+
 ## Demo project
 
 [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) is a simple C# project with one Project Reference and one Nuget Package reference together with several secondary dependencies, and is a typical scenario for demonstrating how BFlata works with BFlat.
