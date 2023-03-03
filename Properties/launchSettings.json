@@ -2,7 +2,7 @@
   "profiles": {
     "BFlatA": {
       "commandName": "Project",
-      "commandLineArgs": "build D:\\Repos\\LoraMonitor\\branches\\1.7-MemoryPack\\LoraServer\\LoraServer.csproj -pr:C:\\Users\\Administrator.SP\\.nuget\\packages\\ "
+      "commandLineArgs": "-? build D:\\Repos\\LoraMonitor\\branches\\1.7-MemoryPack\\LoraMonitor\\LoraMonitor.Core\\LoraMonitor.Core.csproj -pr:C:\\Users\\Administrator.SP\\.nuget\\packages\\"
     }
   }
 }
