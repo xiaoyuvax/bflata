@@ -10,7 +10,7 @@ using System.Xml;
 using System.Xml.Linq;
 
 #if BFLAT
-[assembly: System.Reflection.AssemblyVersionAttribute("1.1.0.3")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.2.0.0")]
 #endif
 
 namespace BFlatA
