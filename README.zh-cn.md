@@ -116,6 +116,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 - "--buildmode:tree" 选项按照引用层次结构构建，但是被引用的项目实际上使用 'bflat build-il' 选项构建，这会生成 IL 程序集而不是本机代码，只有根项目才会以本机代码构建。这是因为目前还不知道 BFlat 是否能够生成可通过 -r 选项引用的本机 .dll 库（如果它有一天能够这样做，或者已知能够做到，那么 TREE 模式实际上就可以用于本机代码）。注意：TREE 模式在处理 Nuget 包使用与父项目不兼容的依赖项的情况时非常有用（在 FLAT 模式下会导致错误），因为库是独立编译的。此外，使用 -dd（Deposit Dependency）选项的父项间接使用子项目依赖项的父项目也可能得到解决。
 - "--buildmode:flat" 选项（默认选项，如果未提供 -bm）生成扁平化的构建脚本，该脚本将所有引用的 .csproj 文件的所有代码文件、包引用和资源合并到一个文件中，但此解决方案无法解决来自不同项目的依赖项版本不兼容的问题，特别是 Nuget 包所需的次要依赖项。可以通过使所有项目引用相同版本的相同软件包来消除项目版本不一致，但是预编译软件包之间的次要依赖关系是各种各样的且不可更改的。
 - 尽管当前版本支持调用resgen.exe（通过--resgen选项指定）来编译.resx文件以生成可嵌入的二进制文件（.resources），并在构建时从临时目录引用它们，资源的命名空间将采用相应的代码文件，例如myForm.cs对应myForm.resx，Resources.Designer.cs对应Resources.resx，但仍然会出现以下错误消息。这可能是由于BFlat的内部设置，正如此处所述:https://github.com/bflattened/bflat/issues/92
+
 ![image](https://user-images.githubusercontent.com/6511226/222661726-92f1afb7-ba9f-4e3b-8c7e-f25148119edc.png)
 
 ## 示例项目
