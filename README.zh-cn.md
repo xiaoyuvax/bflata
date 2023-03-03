@@ -12,6 +12,9 @@ BFlatA 是套壳BFlat（C#本机代码编译器）用于递归构建带有以下
 
 本工程与BFlat的这个问题相关：https://github.com/bflattened/bflat/issues/61
 
+更新 23-03-03 (V1.2.0.0)：
+- 增加了通过调用 resgen.exe 编译 .resx 文件的支持，需要使用 --resgen 参数指定。每个 .resx 文件的命名空间将通过检查相应的代码文件确定。例如，myForm.resx 对应 myForm.cs，Resources.resx 对应 Resources.Designer.cs。但是在下面的已知问题中描述的使用资源运行 winform 程序可能仍然存在一些问题。
+
 更新 23-02-26 (V1.1.0.0)：
 - 添加了 Exclu 机制
   一些（但不是全部）Nuget 包引用的依赖项名称以 "System.*" 开头，可能已经包含在运行时中，并使用 `bflat --stdlib Dotnet` 选项启用，必须从 BFlata 生成的构建脚本中排除，否则您可能会看到大量以下的 error CS0433 错误：
@@ -41,7 +44,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 		Usage: bflata [build|build-il] <csproj file> [options]
 
 		[build|build-il]                              使用 %Path% 中的 BFlat 进行构建，忽略 -st 选项。
-													  如果省略，则仅生成构建脚本，但 -bm 选项仍然有效。
+							      如果省略，则仅生成构建脚本，但 -bm 选项仍然有效。
 
 		<.csproj文件>                                 如果指定了 'build'，则必须是第二个参数，否则是第一个参数，仅允许一个项目。 
 
@@ -58,22 +61,39 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
                                                       TREE = 单独构建每个项目并相应地引用它们，使用 -r 选项；
                                                       TREED = '-bm:tree -dd'。
     -st|--scripttype:<rsp|bat|sh>                     响应文件(.rsp,默认)或Windows批处理文件(.cmd/.bat)或Linux Shell脚本(.sh)文件。
-
+	
+    Obsolete Options:
     -dd|--depdep                                      存储依赖项模式，与'-bm:tree'一起有效，
                                                       存储子项目的依赖项并将其按层次线累积提供给父项目，
                                                       以满足任何可能的引用要求。
 
     -t|--target:<Exe|Shared|WinExe>                   构建目标，此参数也将传递给BFlat。
 
-    -o|--out:<File>                                   根项目的输出文件路径。此选项也将传递给BFlat。
+    -o|--out:<File>                                   根项目的输出文件路径。
 
     -xx|--exclufx:<dotnet Shared Framework path>      如果路径有效，则将从该路径中提取lib exclus。
                                                       例如'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
                                                       并且提取的exclus将保存到'<moniker>.exclu'以供进一步使用。
-                                                      其中moniker由-fx选项指定。													
+                                                      其中moniker由-fx选项指定。
+						          如果未明确指定此路径，则BFlatA将自动搜索 -pr:<path> 和 -fx:<framework> 以查找 Exclus。
+													  
+
+     
+	--resgen:<path to resgen.exe>                     参数指定资源生成器（例如ResGen.exe）的路径，用于将.resx文件编译为二进制文件。exclus。
+	
+	
+	Shared Options(will also be passed to BFlat):
+	  --target:<Exe|Shared|WinExe>                    默认构建目标：由 bflat 完成
+  
+	  --os <Windows|Linux|Uefi>                       默认构建目标：Windows
+
+	  --arch <x64|arm64|x86|...>                      默认平台架构：x64
+	
+	
+														
 		
         注意：
-             除了“-o”选项之外，任何其他的参数都将原样传递给BFlat。
+                     除了“-o”选项之外，任何其他的参数都将原样传递给BFlat。
 		         对于选项，可以使用空格代替“:”字符。例如，“-pr：<path>”=“-pr <path>”。
 		         请确保在`.csproj`文件中关闭了`<ImplicitUsings>`，并且所有命名空间都已正确导入。
 		         生成脚本的文件名为“build.rsp、build.cmd、build.sh”之一，`.rsp`文件允许更大的参数，是首选。
@@ -95,7 +115,8 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 - "--buildmode:tree" 选项按照引用层次结构构建，但是被引用的项目实际上使用 'bflat build-il' 选项构建，这会生成 IL 程序集而不是本机代码，只有根项目才会以本机代码构建。这是因为目前还不知道 BFlat 是否能够生成可通过 -r 选项引用的本机 .dll 库（如果它有一天能够这样做，或者已知能够做到，那么 TREE 模式实际上就可以用于本机代码）。注意：TREE 模式在处理 Nuget 包使用与父项目不兼容的依赖项的情况时非常有用（在 FLAT 模式下会导致错误），因为库是独立编译的。此外，使用 -dd（Deposit Dependency）选项的父项间接使用子项目依赖项的父项目也可能得到解决。
 - "--buildmode:flat" 选项（默认选项，如果未提供 -bm）生成扁平化的构建脚本，该脚本将所有引用的 .csproj 文件的所有代码文件、包引用和资源合并到一个文件中，但此解决方案无法解决来自不同项目的依赖项版本不兼容的问题，特别是 Nuget 包所需的次要依赖项。可以通过使所有项目引用相同版本的相同软件包来消除项目版本不一致，但是预编译软件包之间的次要依赖关系是各种各样的且不可更改的。
-- 目前尚未实现解析 .resx 文件中的资源，因为缺乏有关 BFlat 如何处理 .resx 文件中描述的资源的知识。
+- 尽管当前版本支持调用resgen.exe（通过--resgen选项指定）来编译.resx文件以生成可嵌入的二进制文件（.resources），并在构建时从临时目录引用它们，资源的命名空间将采用相应的代码文件，例如myForm.cs对应myForm.resx，Resources.Designer.cs对应Resources.resx，但仍然会出现以下错误消息。这可能是由于BFlat的内部设置，正如此处所述:https://github.com/bflattened/bflat/issues/92
+![image](https://user-images.githubusercontent.com/6511226/222661726-92f1afb7-ba9f-4e3b-8c7e-f25148119edc.png)
 
 ## 示例项目
 
