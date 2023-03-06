@@ -522,6 +522,8 @@ namespace BFlatA
             _ => BuildMode.None
         };
 
+        public static IEnumerable<string> ToRefedPaths(this IEnumerable<string> paths) => paths.Select(i => PATH_PLACEHOLDER + PathSepChar + Path.GetRelativePath(RefPath, i));
+
         public static int ParseProject(string projectFile,
                                        string[] allLibPaths,
                                        string target,
@@ -631,6 +633,12 @@ namespace BFlatA
                             //might include redundencies,and should be distinctized at the last step, the reference of codeBook shall not be changed here by using Dictinct().
                             codeBook.AddRange(getCodeFiles(projectPath, removeBook, includeBook));
 
+                            //Append Form related .resx file
+                            foreach (var c in codeBook.Where(i => i.ToLower().EndsWith(".designer.cs"))
+                                .Select(i => i[..^12] + ".resx")
+                                .Where(i => File.Exists(i.Replace(PATH_PLACEHOLDER, RefPath)))
+                                ) resBook.TryAdd(c, null);
+
                             //Recursively parse/build all referenced projects
                             foreach (var i in ig.OfInclude("ProjectReference"))
                             {
@@ -737,7 +745,7 @@ namespace BFlatA
                             {
                                 IEnumerable<string> items = getAbsPaths(ToSysPathSep(i.Attribute(action)?.Value), projectPath);
                                 //relative paths used by script is relative to WorkingPath
-                                if (!useAbsolutePath) items = items.Select(i => PATH_PLACEHOLDER + PathSepChar + Path.GetRelativePath(RefPath, i));
+                                if (!useAbsolutePath) items = items.ToRefedPaths();
 
                                 book.AddRange(items.Except(book));
 
@@ -756,7 +764,7 @@ namespace BFlatA
                             {
                                 IEnumerable<string> items = getAbsPaths(ToSysPathSep(i.Attribute(action)?.Value), projectPath);
                                 //relative paths used by script is relative to WorkingPath
-                                if (!useAbsolutePath) items = items.Select(i => PATH_PLACEHOLDER + PathSepChar + Path.GetRelativePath(RefPath, i));
+                                if (!useAbsolutePath) items = items.ToRefedPaths();
 
                                 foreach (var p in items) book.TryAdd(p, Path.GetFileName(p));
 
@@ -795,7 +803,7 @@ namespace BFlatA
                                 var files = Directory.GetFiles(ToSysPathSep(path), "*.cs").Except(removeLst)
                                     .Where(i => !IGNORED_SUBFOLDER_NAMES.Any(x => i.Contains(PathSepChar + x + PathSepChar)));
                                 if (includeLst != null) files = files.Concat(includeLst);
-                                files = files.Distinct().Select(i => PATH_PLACEHOLDER + PathSepChar + Path.GetRelativePath(RefPath, i));
+                                files = files.Distinct().ToRefedPaths();
                                 codeFiles.AddRange(files);
                             }
                             catch (Exception ex) { Console.WriteLine(ex.Message); }
