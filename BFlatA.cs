@@ -9,9 +9,7 @@ using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
 
-#if BFLAT
-[assembly: System.Reflection.AssemblyVersionAttribute("1.2.0.1")]
-#endif
+[assembly: AssemblyVersion("1.2.1.0")]
 
 namespace BFlatA
 {
@@ -61,13 +59,13 @@ namespace BFlatA
         public static readonly string WorkingPath = Directory.GetCurrentDirectory();
         public static readonly XNamespace XSD_NUGETSPEC = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
         public static string Architecture = "x64";
-        public static string outputFile = null;
         public static BuildMode BuildMode = BuildMode.None;
         public static bool DepositLib = false;
         public static List<string> LibCache = new();
         public static string[] LibExclu = Array.Empty<string>();
         public static List<string> NuspecCache = new();
         public static string OS = "windows";
+        public static string outputFile = null;
         public static string OutputType = "Exe";
         public static string PackageRoot = "";
 
@@ -93,6 +91,12 @@ namespace BFlatA
         public static string OSArchMoniker { get; } = $"{GetOSMoniker(OS)}-{Architecture}";
 
         public static string RuntimesPathSegment { get; } = PathSepChar + "runtimes" + PathSepChar;
+
+        #region MSBuildVariable
+
+        public static string MSBuildStartupDirectory = Directory.GetCurrentDirectory();
+
+        #endregion MSBuildVariable
 
         public static Dictionary<string, string> CallResGen(string resxFile, string projectName)
         {
@@ -153,6 +157,9 @@ namespace BFlatA
             return Array.Empty<string>();
         }
 
+        public static IEnumerable<string> ExtractAttributePathValues(this IEnumerable<XElement> x, string attributeName, string refPath, Dictionary<string, string> msBuildMacros)
+            => x.SelectMany(i => GetAbsPaths(ReplaceMsBuildMacros(i.Attribute(attributeName)?.Value, msBuildMacros), refPath));
+
         public static string GenerateScript(string projectName,
                                             IEnumerable<string> restParams,
                                             IEnumerable<string> codeBook,
@@ -170,7 +177,7 @@ namespace BFlatA
             codeBook = codeBook.Distinct();
             libBook = libBook.Distinct();
 
-            Console.WriteLine($"{NL}Generating script:{projectName}");
+            Console.WriteLine($"Generating script:{projectName}");
 
             string lineFeed = GetLineFeed(scriptType);
 
@@ -235,6 +242,45 @@ namespace BFlatA
             string formatPath(string path) => ScriptType == ScriptType.RSP ? Path.GetFullPath(path) : path;
 
             return cmd.ToString();
+        }
+
+        public static IEnumerable<string> GetAbsPaths(string path, string basePath)
+        {
+            if (string.IsNullOrEmpty(path)) return Array.Empty<string>();
+
+            string fullPath = Path.GetFullPath(ToSysPathSep(path), basePath);
+            string pattern = Path.GetFileName(fullPath);
+            if (pattern.Contains('*'))
+            {
+                fullPath = Path.GetDirectoryName(fullPath);
+                string[] fileLst = Array.Empty<string>();
+                try
+                {
+                    fileLst = Directory.GetFiles(fullPath, pattern);
+                    foreach (var i in fileLst) Console.Write(i); //Debug:
+                }
+                catch (Exception ex) { Console.WriteLine(ex.Message); }
+                return fileLst;
+            }
+            else return new[] { fullPath };
+        }
+
+        public static List<string> GetCodeFiles(string path, List<string> removeLst, List<string> includeLst = null, Dictionary<string, string> msBuildMacros = null)
+        {
+            List<string> codeFiles = new();
+            try
+            {
+                var files = Directory.GetFiles(ToSysPathSep(path), "*.cs").Except(removeLst)
+                    .Where(i => !IGNORED_SUBFOLDER_NAMES.Any(x => i.Contains(PathSepChar + x + PathSepChar)));
+                if (includeLst != null) files = files.Concat(includeLst);
+                files = files.Distinct().ToRefedPaths();
+                codeFiles.AddRange(files);
+            }
+            catch (Exception ex) { Console.WriteLine(ex.Message); }
+
+            foreach (var d in Directory.GetDirectories(path).Where(i => !IGNORED_SUBFOLDER_NAMES.Any(j => i.ToLower().EndsWith(j)))) codeFiles.AddRange(GetCodeFiles(d, removeLst));
+
+            return codeFiles;
         }
 
         public static string GetExt(string outputType = "exe") => outputType switch
@@ -522,8 +568,6 @@ namespace BFlatA
             _ => BuildMode.None
         };
 
-        public static IEnumerable<string> ToRefedPaths(this IEnumerable<string> paths) => paths.Select(i => PATH_PLACEHOLDER + PathSepChar + Path.GetRelativePath(RefPath, i));
-
         public static int ParseProject(string projectFile,
                                        string[] allLibPaths,
                                        string target,
@@ -542,7 +586,8 @@ namespace BFlatA
         {
             outputType = "Shared";
             script = null;
-            projectName = null;
+            projectName = Path.GetFileNameWithoutExtension(projectFile);
+            string projectPath = Path.GetFullPath(Path.GetDirectoryName(projectFile));
 
             if (string.IsNullOrEmpty(projectFile)) return -1;
 
@@ -554,15 +599,32 @@ namespace BFlatA
             List<string> contentBook = new();
             List<string> myRefProject = new();
             string lineFeed = GetLineFeed(scriptType);
-            projectName = Path.GetFileNameWithoutExtension(projectFile);
+
             bool useWinform = false;
             bool useWpf = false;
             int err = 0;
 
-            string projectPath = "";
             List<string> targets = new();
 
             Dictionary<string, string> packageReferences = new();
+
+            Dictionary<string, string> msBuildMacros = new()
+            {
+                { "MSBuildProjectDirectory",projectPath.TrimPathEnd()},
+                //{"MSBuildProjectDirectoryNoRoot},
+                { "MSBuildProjectExtension",Path.GetExtension(projectFile)},
+                { "MSBuildProjectFile",Path.GetFileName(projectFile)},
+                { "MSBuildProjectFullPath",projectFile},
+                { "MSBuildProjectName",projectName},
+                { "MSBuildRuntimeType",TargetFx},
+
+                { "MSBuildThisFile",Path.GetFileName(projectFile)},
+                { "MSBuildThisFileDirectory",projectPath.TrimPathEnd() + PathSepChar},
+                //{"MSBuildThisFileDirectoryNoRoot},
+                { "MSBuildThisFileExtension",Path.GetExtension(projectFile)},
+                { "MSBuildThisFileFullPath",projectPath},
+                { "MSBuildThisFileName",Path.GetFileNameWithoutExtension(projectFile)},
+            };
 
             ///Flag if already built
             if (!ParsedProjectPaths.Contains(projectFile))
@@ -589,11 +651,16 @@ namespace BFlatA
                     if (pj != null && pj.Name.LocalName.ToLower() == "project")
                     {
                         //Flatten all item groups
-                        var ig = pj.Descendants("ItemGroup").SelectMany(i => i.Elements());
+                        var ig = pj.Descendants().Where(i => i.Name.LocalName == "ItemGroup").SelectMany(i => i.Elements());
+                        var imports = pj.Descendants("Import");
 
                         //Flatten all property groups
                         var pg = pj.Descendants("PropertyGroup").SelectMany(i => i.Elements());
-                        targets = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "targetframework" || i.Name.LocalName.ToLower() == "targetframeworks")?.Value.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(i => i.ToLower())?.ToList();
+                        targets = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "targetframework" || i.Name.LocalName.ToLower() == "targetframeworks")?.Value
+                            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(i => i.ToLower())?
+                            .ToList() ?? new() { target }; //if no targets specified, use default target.
+
                         outputType = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "outputtype")?.Value ?? outputType;
                         projectName = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "assemblyname")?.Value ?? projectName;
                         useWinform = pg.Any(i => i.Name.LocalName.ToLower() == "usewindowsforms");
@@ -601,6 +668,7 @@ namespace BFlatA
 
                         //If project setting is not compatible with specified framework, then quit.
                         bool isStandardLib = targets?.Any(i => i.StartsWith("netstandard")) == true;
+
                         bool hasTarget = targets?.Any(i => i.Contains(target)) == true;
                         if (hasTarget || isStandardLib)
                         {
@@ -613,6 +681,7 @@ namespace BFlatA
                             foreach (var pr in ig.OfInclude("PackageReference")) packageReferences.TryAdd(pr.Attribute("Include")?.Value, pr.Attribute("Version")?.Value);
 
                             //if specified targets is included, make it preferable to search.
+
                             if (hasTarget)
                             {
                                 targets.Remove(target);
@@ -631,7 +700,7 @@ namespace BFlatA
 
                             //Search all CodeFiles in current workingPath and underlying subfolders, except those from removeList (all Paths r expanded to absolute paths)
                             //might include redundencies,and should be distinctized at the last step, the reference of codeBook shall not be changed here by using Dictinct().
-                            codeBook.AddRange(getCodeFiles(projectPath, removeBook, includeBook));
+                            codeBook.AddRange(GetCodeFiles(projectPath, removeBook, includeBook, msBuildMacros));
 
                             //Append Form related .resx file
                             foreach (var c in codeBook.Where(i => i.ToLower().EndsWith(".designer.cs"))
@@ -640,45 +709,51 @@ namespace BFlatA
                                 ) resBook.TryAdd(c, null);
 
                             //Recursively parse/build all referenced projects
-                            foreach (var i in ig.OfInclude("ProjectReference"))
+                            foreach (string p in ig.OfInclude("ProjectReference").ExtractAttributePathValues("Include", projectPath, msBuildMacros)
+                                .Concat(imports.ExtractAttributePathValues("Project", projectPath, msBuildMacros))
+                                .Where(i => !i.ToLower().EndsWith(".targets")))
                             {
-                                //make path absolute
-                                var refProjectPath = getAbsPaths(i.Attribute("Include")?.Value, projectPath).FirstOrDefault();
+                                string refProjectPath = p;
+                                foreach (var m in msBuildMacros)
+                                    if (refProjectPath.Contains($"$({m.Key})")) refProjectPath = ReplaceMsBuildMacros(refProjectPath, msBuildMacros);
 
-                                string innerScript = "", innerProjectName = "", innerOutputType = "";
-
-                                if (buildMode == BuildMode.Tree)
+                                if (!string.IsNullOrEmpty(refProjectPath) && File.Exists(refProjectPath))
                                 {
-                                    if (DepositLib) err = ParseProject(refProjectPath, allLibPaths, target, packageRoot,
-                                                                       restArg, buildMode, scriptType,
-                                                                       out innerProjectName, out innerOutputType,
-                                                                       out innerScript, null, libBook, null,
-                                                                       refProjectBook, true);
+                                    string innerScript = "", innerProjectName = "", innerOutputType = "";
+
+                                    if (buildMode == BuildMode.Tree)
+                                    {
+                                        if (DepositLib) err = ParseProject(refProjectPath, allLibPaths, target, packageRoot,
+                                                                           restArg, buildMode, scriptType,
+                                                                           out innerProjectName, out innerOutputType,
+                                                                           out innerScript, null, libBook, null,
+                                                                           refProjectBook, true);
+                                        else err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restArg,
+                                                                buildMode, scriptType, out innerProjectName,
+                                                                out innerOutputType, out innerScript, isDependency: true);
+                                    }
                                     else err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restArg,
-                                                            buildMode, scriptType, out innerProjectName,
-                                                            out innerOutputType, out innerScript, isDependency: true);
-                                }
-                                else err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restArg,
-                                                        buildMode, scriptType, out innerProjectName, out innerOutputType,
-                                                        out innerScript, codeBook, libBook, resBook, isDependency: true);
+                                                            buildMode, scriptType, out innerProjectName, out innerOutputType,
+                                                            out innerScript, codeBook, libBook, resBook, isDependency: true);
 
-                                if (err == 0 && buildMode == BuildMode.Tree)  // <0 bflata errors, >0 bflat errors
-                                {
-                                    script = AppendScriptBlock(script, innerScript, scriptType);
+                                    if (err == 0 && buildMode == BuildMode.Tree)  // <0 bflata errors, >0 bflat errors
+                                    {
+                                        script = AppendScriptBlock(script, innerScript, scriptType);
 
-                                    //add local projects to references
-                                    myRefProject.Add("-r " + innerProjectName + GetExt(innerOutputType));
-                                }
-                                else if (err != 0)
-                                {
-                                    Console.WriteLine($"Error:failure building dependency:{projectName}=>{innerProjectName}!!! ");
-                                    break; //any dependency failure,break!
+                                        //add local projects to references
+                                        myRefProject.Add("-r " + innerProjectName + GetExt(innerOutputType));
+                                    }
+                                    else if (err != 0)
+                                    {
+                                        Console.WriteLine($"Error:failure building dependency:{projectName}=>{innerProjectName}!!! ");
+                                        break; //any dependency failure,break!
+                                    }
                                 }
                             }
 
                             //Add Predefined Framework dependencies
                             if (useWinform) foreach (var p in GetFrameworkLibs(WINDESKTOP_APP).Where(i => !Path.GetFileName(i).StartsWith("PresentationFramework"))) libBook.Add(p.Replace(packageRoot, PATH_PLACEHOLDER));
-                            if (useWpf) foreach (var p in GetFrameworkLibs(WINDESKTOP_APP).Where(i => !Path.GetFileName(i).StartsWith("PresentationFramework"))) libBook.Add(p.Replace(packageRoot, PATH_PLACEHOLDER));
+                            if (useWpf) foreach (var p in GetFrameworkLibs(WINDESKTOP_APP)) libBook.Add(p.Replace(packageRoot, PATH_PLACEHOLDER));
 
                             //build current project, so far all required referenced projects must have been built to working dir (as .dll).
                             if (err == 0 && buildMode == BuildMode.Tree)
@@ -736,14 +811,14 @@ namespace BFlatA
                         ParsedProjectPaths.Add(projectFile);
 
                         //[Local methods]
-                        int AddElement2List(IEnumerable<XElement> nodes, List<string> book, string displayAction, string action = "Include", bool useAbsolutePath = true)
+                        int AddElement2List(IEnumerable<XElement> elements, List<string> book, string displayAction, string action = "Include", bool useAbsolutePath = true)
                         {
                             //This method is easy to extent to more categories.
                             //CodeFiles and PackageReferences r exceptions and stored otherwise.
                             int counter = 0;
-                            foreach (var i in nodes)
+                            foreach (var i in elements)
                             {
-                                IEnumerable<string> items = getAbsPaths(ToSysPathSep(i.Attribute(action)?.Value), projectPath);
+                                IEnumerable<string> items = ExtractAttributePathValues(elements, action, projectPath, msBuildMacros);
                                 //relative paths used by script is relative to WorkingPath
                                 if (!useAbsolutePath) items = items.ToRefedPaths();
 
@@ -755,14 +830,14 @@ namespace BFlatA
                             return counter;
                         }
 
-                        int AddElement2Dict(IEnumerable<XElement> nodes, Dictionary<string, string> book, string displayAction, string action = "Include", bool useAbsolutePath = true)
+                        int AddElement2Dict(IEnumerable<XElement> elements, Dictionary<string, string> book, string displayAction, string action = "Include", bool useAbsolutePath = true)
                         {
                             //This method is easy to extent to more categories.
                             //CodeFiles and PackageReferences r exceptions and stored otherwise.
                             int counter = 0;
-                            foreach (var i in nodes)
+                            foreach (var i in elements)
                             {
-                                IEnumerable<string> items = getAbsPaths(ToSysPathSep(i.Attribute(action)?.Value), projectPath);
+                                IEnumerable<string> items = ExtractAttributePathValues(elements, action, projectPath, msBuildMacros);
                                 //relative paths used by script is relative to WorkingPath
                                 if (!useAbsolutePath) items = items.ToRefedPaths();
 
@@ -772,45 +847,6 @@ namespace BFlatA
                             }
                             if (counter > 0) Console.WriteLine($"{displayAction,24}\t[{action}]\t{counter} items added!");
                             return counter;
-                        }
-
-                        IEnumerable<string> getAbsPaths(string path, string basePath)
-                        {
-                            if (string.IsNullOrEmpty(path)) return Array.Empty<string>();
-
-                            string fullPath = Path.GetFullPath(projectPath + PathSepChar + ToSysPathSep(path), basePath);
-                            string pattern = Path.GetFileName(fullPath);
-                            if (pattern.Contains('*'))
-                            {
-                                fullPath = Path.GetDirectoryName(fullPath);
-                                string[] fileLst = Array.Empty<string>();
-                                try
-                                {
-                                    fileLst = Directory.GetFiles(fullPath, pattern);
-                                    foreach (var i in fileLst) Console.Write(i); //Debug:
-                                }
-                                catch (Exception ex) { Console.WriteLine(ex.Message); }
-                                return fileLst;
-                            }
-                            else return new[] { fullPath };
-                        }
-
-                        List<string> getCodeFiles(string path, List<string> removeLst, List<string> includeLst = null)
-                        {
-                            List<string> codeFiles = new();
-                            try
-                            {
-                                var files = Directory.GetFiles(ToSysPathSep(path), "*.cs").Except(removeLst)
-                                    .Where(i => !IGNORED_SUBFOLDER_NAMES.Any(x => i.Contains(PathSepChar + x + PathSepChar)));
-                                if (includeLst != null) files = files.Concat(includeLst);
-                                files = files.Distinct().ToRefedPaths();
-                                codeFiles.AddRange(files);
-                            }
-                            catch (Exception ex) { Console.WriteLine(ex.Message); }
-
-                            foreach (var d in Directory.GetDirectories(path).Where(i => !IGNORED_SUBFOLDER_NAMES.Any(j => i.ToLower().EndsWith(j)))) codeFiles.AddRange(getCodeFiles(d, removeLst));
-
-                            return codeFiles;
                         }
                     }
                     else return -0x12;
@@ -865,6 +901,13 @@ namespace BFlatA
 
         public static string[] RemoveArg(string[] restParams, string a) => restParams.Except(new[] { a }).ToArray();
 
+        public static string ReplaceMsBuildMacros(string path, Dictionary<string, string> msBuildMacros)
+        {
+            foreach (var m in msBuildMacros)
+                if (path.Contains($"$({m.Key})")) path = Path.GetFullPath(path.Replace($"$({m.Key})", m.Value));
+            return path;
+        }
+
         public static void ShowHelp()
         {
             Console.WriteLine($"  Usage: bflata [build|build-il] <csproj file> [options]{NL}");
@@ -906,6 +949,8 @@ namespace BFlatA
             Console.WriteLine("  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx=net7.0 -st:bat -bm:treed  <- only generate BAT script which builds project tree orderly with Deposit Dependencies.");
             Console.WriteLine("  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -st:bat --arch x64  <- build in FLAT mode with default target at .net7.0 and '--arch x64' passed to BFlat while the option -st:bat ignored.");
         }
+
+        public static IEnumerable<string> ToRefedPaths(this IEnumerable<string> paths) => paths.Select(i => PATH_PLACEHOLDER + PathSepChar + Path.GetRelativePath(RefPath, i));
 
         public static string ToSysPathSep(string path)
         {
@@ -1016,7 +1061,7 @@ namespace BFlatA
             {
                 var fullPath = Path.GetFullPath(r.Key.Replace(PATH_PLACEHOLDER, RefPath));
                 if (Path.GetExtension(fullPath) == ".resx") foreach (var kv in CallResGen(fullPath, projectName)) myResBook.TryAdd(kv.Key, kv.Value);  //use absPath
-                else myResBook.TryAdd(r.Key, r.Value);  //use relPath
+                else myResBook.TryAdd(r.Key, null);  //use relPath
             }
 
             return myResBook;
@@ -1220,12 +1265,13 @@ namespace BFlatA
                 Console.WriteLine();
 
                 //Parse project and all project references recursively.
-                if (UseBuild) Console.WriteLine($"--BUILDING----------------------------");
-                else Console.WriteLine($"--SCRIPTING---------------------------");
+
+                Console.WriteLine($"{NL}--PARSING-----------------------------");
                 var err = ParseProject(ProjectFile, LibCache.ToArray(), TargetFx, PackageRoot, restArgs, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook, refProjectBook, false);
 
                 if (err == 0)
                 {
+                    Console.WriteLine($"{NL}--SCRIPTING---------------------------");
                     //overwrite script under Flat Mode, and explicitly specify BuldMode.Tree as to generate the header part.
                     if (BuildMode != BuildMode.Tree)
                     {
@@ -1242,6 +1288,7 @@ namespace BFlatA
 
                         if (UseBuild && BuildMode == BuildMode.Flat)
                         {
+                            if (UseBuild) Console.WriteLine($"{NL}--BUILDING----------------------------");
                             //Start Building
                             Console.WriteLine($"Building in FLAT mode:{projectName}...");
                             var buildProc = build(ScriptType == ScriptType.RSP ? $"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd"));
