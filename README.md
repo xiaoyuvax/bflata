@@ -15,7 +15,7 @@ BFlatA is a wrapper/building script generator for BFlat, a native C# compiler, f
   BFlata is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 Update 23-03-03 (V1.2.0.0):
-- Adding support compiling .resx files by calling resgen.exe, which u must specify with `--resgen`. Namespace for each .resx file will be determine by checking corresponding code file. eg. myForm.cs for myForm.resx and Resources.Designer.cs for Resources.resx. But there might still be some problem running winform program with resources, as described in Known Issues below.
+- Adding support compiling .resx files by calling resgen.exe, which u must specify with `--resgen`. Namespace for each .resx file will be determined by checking corresponding code file. eg. myForm.cs for myForm.resx and Resources.Designer.cs for Resources.resx. But there might still be some problem running winform program with resources, as described in Known Issues below.
 
 Update 23-02-26 (V1.1.0.0):
 - Exclu mechanism added. Some (but not all) dependencies referenced by nuget packages with name starting with "System.*" might have already been included in runtime, which is enabled with `bflat --stdlib Dotnet` option, and must be excluded from the BFlata generated building script, otherwise you may see a lot of error CS0433 as below:
