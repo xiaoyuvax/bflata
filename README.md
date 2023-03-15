@@ -3,7 +3,7 @@
 
 # BFlatA
 
-`BFlatA Purpose: Write your program in VS, and Build it Flat` (with bflat)
+`BFlatA Purpose: Write your program in VS, and Build it Flat` (with [bflat](https://github.com/bflattened/bflat))
 
 BFlatA is a wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
  - Referenced projects
@@ -12,10 +12,10 @@ BFlatA is a wrapper/building script generator for BFlat, a native C# compiler, f
 
   You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net).
   
-  BFlat is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
+  BFlata is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 Update 23-03-03 (V1.2.0.0):
-- Adding support compiling .resx files by calling resgen.exe, which u must specify with `--resgen`. Namespace for each .resx file will be determine by checking corresponding code file. eg. myForm.cs for myForm.resx and Resources.Designer.cs for Resources.resx. But there might still be some problem running winform program with resources, as described in Known Issues below.
+- Adding support compiling .resx files by calling resgen.exe, which u must specify with `--resgen`. Namespace for each .resx file will be determined by checking corresponding code file. eg. myForm.cs for myForm.resx and Resources.Designer.cs for Resources.resx. But there might still be some problem running winform program with resources, as described in Known Issues below.
 
 Update 23-02-26 (V1.1.0.0):
 - Exclu mechanism added. Some (but not all) dependencies referenced by nuget packages with name starting with "System.*" might have already been included in runtime, which is enabled with `bflat --stdlib Dotnet` option, and must be excluded from the BFlata generated building script, otherwise you may see a lot of error CS0433 as below:
@@ -114,7 +114,7 @@ of course BFlat is prefered to build the program entirely to native code(without
 
 - The "--buildmode:tree" option builds by reference hierachy, but the referenced projects are actually built with 'bflat build-il' option, which produces IL assemblies rather than native code, and only the root project is to be built in native code. This is because so far BFlat is not known to produce native .dll lib which can be referenced with -r option (if it will do so someday, or known to be able to do so, the TREE mode would actually work for native code then). Note: TREE mode is useful dealing with the scenarios that Nuget package uses dependencies whose versions are not compatible with the parent project (in FLAT mode, as would cause errors), for the lib is compiled independently. Moreover with the `-dd`(Deposit Dependency) option, parent project who indirectly use child project's dependencies might also be solved. 
 - The "--buildmode:flat" option (default, if -bm not served) generates flattened building script which incorproate all code files, package references and resources of all referenced .csproj files into one, but this solution cannot solve the issue of version incompatibility of dependencies from different projects, especially secondary dependencies required by Nuget packages. Version inconsistency of projects can be eliminated by making all projects reference the same packages of the same version, but secondary dependencies among precompiled packages are various and not changeable	
-- Although current version support calling resgen.exe (specified by `--resgen` option) to compiler .resx file to embeddable binary(.resources) and reference'em from temp directory at build-time and namespace for resources would be adopted from coressponding code files, eg. myForm.cs for myForm.resx and Resources.Designer.cs for Resources.resx, error message like below would still occur. It is probably due to bflat internal settings, as reported here: https://github.com/bflattened/bflat/issues/92
+- Although current version support calling resgen.exe (specified by `--resgen` option) to compile .resx file to embeddable binary(.resources) and reference'em from temp directory at build-time and namespace for resources would be adopted from coressponding code files, eg. myForm.cs for myForm.resx and Resources.Designer.cs for Resources.resx, error message like below would still occur. It is probably due to bflat internal settings, as reported here: https://github.com/bflattened/bflat/issues/92
 
 ![image](https://user-images.githubusercontent.com/6511226/222661726-92f1afb7-ba9f-4e3b-8c7e-f25148119edc.png)
 
