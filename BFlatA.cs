@@ -6,7 +6,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
-using System.Xml;
 using System.Xml.Linq;
 
 [assembly: AssemblyVersion("1.2.1.0")]
@@ -28,15 +27,8 @@ namespace BFlatA
         SH
     }
 
-    public static class XmlNodeExtension
+    public static class XExtention
     {
-        public static XmlAttribute FirstAttribute(this XmlNode node, string attributeName) => node.Attributes.OfType<XmlAttribute>().FirstOrDefault(i => i.Name.ToLower() == attributeName.ToLower());
-
-        public static XmlNode FirstChildNode(this XmlNode node, string elementName) => node.ChildNodes.OfType<XmlNode>().FirstOrDefault(i => i.Name.ToLower() == elementName.ToLower());
-
-        public static XmlNode FirstNodeOfAttribute(this IEnumerable<XmlNode> nodes, string attributeName, string attributeValue)
-                    => nodes.FirstOrDefault(i => i.FirstAttribute(attributeName)?.Value.ToLower() == attributeValue.ToLower());
-
         public static IEnumerable<XElement> OfInclude(this IEnumerable<XElement> r, string elementName) => r.Where(i => i.Name.LocalName.ToLower() == elementName.ToLower() && i.Attribute("Include") != null);
 
         public static IEnumerable<XElement> OfRemove(this IEnumerable<XElement> r, string elementName) => r.Where(i => i.Name.LocalName.ToLower() == elementName.ToLower() && i.Attribute("Remove") != null);
@@ -68,10 +60,7 @@ namespace BFlatA
         public static string outputFile = null;
         public static string OutputType = "Exe";
         public static string PackageRoot = "";
-
-        //use empty char instead of null, may reduce problem
         public static List<string> ParsedProjectPaths = new();
-
         public static string ProjectFile = null;
         public static string RefPath = Directory.GetCurrentDirectory();
         public static string ResGenPath = "C:\\Program Files (x86)\\Microsoft SDKs\\Windows\\v10.0A\\bin\\NETFX 4.8 Tools\\ResGen.exe";
@@ -87,9 +76,7 @@ namespace BFlatA
         private const string WINDESKTOP_APP = "microsoft.windowsdesktop.app.runtime";
 
         public static string LibPathSegment { get; } = PathSepChar + "lib" + PathSepChar;
-
         public static string OSArchMoniker { get; } = $"{GetOSMoniker(OS)}-{Architecture}";
-
         public static string RuntimesPathSegment { get; } = PathSepChar + "runtimes" + PathSepChar;
 
         #region MSBuildVariable
@@ -97,6 +84,35 @@ namespace BFlatA
         public static string MSBuildStartupDirectory = Directory.GetCurrentDirectory();
 
         #endregion MSBuildVariable
+
+        public static string AppendScriptBlock(string script, string myScript) => script + (script == null || script.EndsWith("\n") ? "" : NL + NL) + myScript;
+
+        public static Process Build(string myScript)
+        {
+            Console.WriteLine($"- Executing building script: {(myScript.Length > 22 ? myScript[..22] : myScript)}...");
+            Process buildProc = null;
+            if (!string.IsNullOrEmpty(myScript))
+            {
+                try
+                {
+                    if (myScript.StartsWith(COMPILER))
+                    {
+                        var paths = Environment.GetEnvironmentVariable("PATH").Split(IsLinux ? ':' : ';') ?? new[] { "./" };
+
+                        var compilerPath = paths.FirstOrDefault(i => File.Exists(i + PathSepChar + (IsLinux ? COMPILER : COMPILER + ".exe")));
+                        if (Directory.Exists(compilerPath))
+                        {
+                            buildProc = Process.Start(compilerPath + PathSepChar + COMPILER, myScript.Remove(0, COMPILER.Length));
+                        }
+                        else Console.WriteLine("Error:" + COMPILER + " doesn't exist in PATH!");
+                    }
+                    else buildProc = Process.Start(myScript);
+                }
+                catch (Exception ex) { Console.WriteLine(ex.Message); }
+            }
+            else Console.WriteLine($"Error:building script is emtpy!");
+            return buildProc;
+        }
 
         public static Dictionary<string, string> CallResGen(string resxFile, string projectName)
         {
@@ -143,6 +159,9 @@ namespace BFlatA
             .Where(i => !i.Contains(PathSepChar + "runtime."))
             .Where(i => !LibExclu.Any(x => i.Contains(PathSepChar + x + PathSepChar)));
 
+        public static IEnumerable<string> ExtractAttributePathValues(this IEnumerable<XElement> x, string attributeName, string refPath, Dictionary<string, string> msBuildMacros)
+            => x.SelectMany(i => GetAbsPaths(ReplaceMsBuildMacros(i.Attribute(attributeName)?.Value, msBuildMacros), refPath));
+
         public static string[] ExtractExclu(string path)
         {
             if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
@@ -157,13 +176,24 @@ namespace BFlatA
             return Array.Empty<string>();
         }
 
-        public static IEnumerable<string> ExtractAttributePathValues(this IEnumerable<XElement> x, string attributeName, string refPath, Dictionary<string, string> msBuildMacros)
-            => x.SelectMany(i => GetAbsPaths(ReplaceMsBuildMacros(i.Attribute(attributeName)?.Value, msBuildMacros), refPath));
+        public static Dictionary<string, string> FlattenResX(Dictionary<string, string> resBook, string projectName)
+        {
+            Dictionary<string, string> myResBook = new();
+            foreach (var r in resBook)
+            {
+                var fullPath = Path.GetFullPath(r.Key.Replace(PATH_PLACEHOLDER, RefPath));
+                if (Path.GetExtension(fullPath) == ".resx") foreach (var kv in CallResGen(fullPath, projectName)) myResBook.TryAdd(kv.Key, kv.Value);  //use absPath
+                else myResBook.TryAdd(r.Key, null);  //use relPath
+            }
+
+            return myResBook;
+        }
 
         public static string GenerateScript(string projectName,
-                                            IEnumerable<string> restParams,
+                                                    IEnumerable<string> restParams,
                                             IEnumerable<string> codeBook,
                                             IEnumerable<string> libBook,
+                                            IEnumerable<string> nativeLibBook,
                                             IDictionary<string, string> resBook,
                                             ScriptType scriptType,
                                             BuildMode buildMode,
@@ -176,6 +206,7 @@ namespace BFlatA
             restParams = restParams.Distinct();
             codeBook = codeBook.Distinct();
             libBook = libBook.Distinct();
+            nativeLibBook = nativeLibBook.Distinct();
 
             Console.WriteLine($"Generating script:{projectName}");
 
@@ -228,6 +259,12 @@ namespace BFlatA
                 cmd.AppendJoin(lineFeed + "-r ", libBook.Select(i => formatPath(i.Replace(PATH_PLACEHOLDER, getPackageRootMacro()))).OrderBy(i => i));
                 Console.WriteLine($"- Found {libBook.Count()} dependent libs(*.dll)");
             }
+            if (nativeLibBook.Any())
+            {
+                cmd.Append(lineFeed + "--ldflags ");
+                cmd.AppendJoin(lineFeed + "--ldflags ", nativeLibBook.Select(i => formatPath(i.Replace(PATH_PLACEHOLDER, getRefPathMacro()))).OrderBy(i => i));
+                Console.WriteLine($"- Found {nativeLibBook.Count()} dependent native libs(*.lib)");
+            }
 
             if (resBook.Any())
             {
@@ -265,6 +302,13 @@ namespace BFlatA
             else return new[] { fullPath };
         }
 
+        public static string GetBuildScriptFileName(ScriptType scriptType = ScriptType.RSP) => scriptType switch
+        {
+            ScriptType.BAT => "build.cmd",
+            ScriptType.SH => "build.sh",
+            _ => "build.rsp"
+        };
+
         public static List<string> GetCodeFiles(string path, List<string> removeLst, List<string> includeLst = null, Dictionary<string, string> msBuildMacros = null)
         {
             List<string> codeFiles = new();
@@ -283,7 +327,7 @@ namespace BFlatA
             return codeFiles;
         }
 
-        public static string GetExt(string outputType = "exe") => outputType switch
+        public static string GetExt(string outputType = "Exe") => outputType switch
         {
             "Exe" => "",
             "WinExe" => ".exe",
@@ -310,6 +354,13 @@ namespace BFlatA
         };
 
         public static string GetOSMoniker(string archArg) => archArg switch { "windows" => "win", "linux" => "linux", _ => "uefi" };
+
+        public static char GetPathSepChar(ScriptType scriptType) => scriptType switch
+        {
+            ScriptType.SH => '/',
+            ScriptType.BAT => '\\',
+            _ => PathSepChar,
+        };
 
         public static bool IsReadable(string file)
         {
@@ -580,6 +631,7 @@ namespace BFlatA
                                        out string script,
                                        List<string> codeBook = null,
                                        List<string> libBook = null,
+                                       List<string> nativeLibBook = null,
                                        Dictionary<string, string> resBook = null,
                                        List<string> refProjectBook = null,
                                        bool isDependency = false)
@@ -594,6 +646,7 @@ namespace BFlatA
             resBook ??= new();
             codeBook ??= new();
             libBook ??= new();
+            nativeLibBook ??= new();
             List<string> removeBook = new();
             List<string> includeBook = new();
             List<string> contentBook = new();
@@ -624,6 +677,8 @@ namespace BFlatA
                 { "MSBuildThisFileExtension",Path.GetExtension(projectFile)},
                 { "MSBuildThisFileFullPath",projectPath},
                 { "MSBuildThisFileName",Path.GetFileNameWithoutExtension(projectFile)},
+
+                {"MSBuildStartupDirectory", RefPath.TrimPathEnd() + PathSepChar }
             };
 
             ///Flag if already built
@@ -675,6 +730,7 @@ namespace BFlatA
                             AddElement2List(ig.OfRemove("Compile"), removeBook, "CompileRemove", "Remove");
                             AddElement2List(ig.OfInclude("Compile"), includeBook, "CompileInclude");
                             AddElement2List(ig.OfInclude("Content"), contentBook, "Content");
+                            AddElement2List(ig.OfInclude("NativeLibrary"), nativeLibBook, "NativeLib");
                             AddElement2Dict(ig.OfInclude("EmbeddedResource"), resBook, "EmbeddedResource", useAbsolutePath: false);
 
                             //Parse Package Dependencies
@@ -726,7 +782,7 @@ namespace BFlatA
                                         if (DepositLib) err = ParseProject(refProjectPath, allLibPaths, target, packageRoot,
                                                                            restArg, buildMode, scriptType,
                                                                            out innerProjectName, out innerOutputType,
-                                                                           out innerScript, null, libBook, null,
+                                                                           out innerScript, null, libBook, nativeLibBook, null,
                                                                            refProjectBook, true);
                                         else err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restArg,
                                                                 buildMode, scriptType, out innerProjectName,
@@ -734,11 +790,11 @@ namespace BFlatA
                                     }
                                     else err = ParseProject(refProjectPath, allLibPaths, target, packageRoot, restArg,
                                                             buildMode, scriptType, out innerProjectName, out innerOutputType,
-                                                            out innerScript, codeBook, libBook, resBook, isDependency: true);
+                                                            out innerScript, codeBook, libBook, nativeLibBook, resBook, isDependency: true);
 
                                     if (err == 0 && buildMode == BuildMode.Tree)  // <0 bflata errors, >0 bflat errors
                                     {
-                                        script = AppendScriptBlock(script, innerScript, scriptType);
+                                        script = AppendScriptBlock(script, innerScript);
 
                                         //add local projects to references
                                         myRefProject.Add("-r " + innerProjectName + GetExt(innerOutputType));
@@ -768,7 +824,7 @@ namespace BFlatA
 
                                 if (UseBuild)
                                 {
-                                    myScript = GenerateScript(projectName, restArg, codeBook, libBook, myFlatResBook, ScriptType.RSP, buildMode, packageRoot, outputType, isDependency, argOutputFile);
+                                    myScript = GenerateScript(projectName, restArg, codeBook, libBook, nativeLibBook, myFlatResBook, ScriptType.RSP, buildMode, packageRoot, outputType, isDependency, argOutputFile);
                                     myScript += getRefProjectLines();
 
                                     Process buildProc = null;
@@ -776,8 +832,8 @@ namespace BFlatA
                                     {
                                         WriteScript(scriptType, packageRoot, projectName, myScript);
                                         Console.WriteLine($"Building {(isDependency ? "dependency" : "root")}:{projectName}...");
-                                        if (isDependency) buildProc = build("bflat build-il @build.rsp");
-                                        else buildProc = build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
+                                        if (isDependency) buildProc = Build("bflat build-il @build.rsp");
+                                        else buildProc = Build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
                                     }
                                     else
                                     {
@@ -798,10 +854,10 @@ namespace BFlatA
                                 }
                                 else
                                 {
-                                    myScript = GenerateScript(projectName, restArg, codeBook, libBook, myFlatResBook, scriptType, buildMode, packageRoot, outputType, isDependency, argOutputFile);
+                                    myScript = GenerateScript(projectName, restArg, codeBook, libBook, nativeLibBook, myFlatResBook, scriptType, buildMode, packageRoot, outputType, isDependency, argOutputFile);
                                     myScript += getRefProjectLines();
-                                    Console.WriteLine($"Appending Script:{projectName}...{Environment.NewLine}");
-                                    script = AppendScriptBlock(script, myScript, scriptType);
+                                    Console.WriteLine($"Appending Script:{projectName}...{NL}");
+                                    script = AppendScriptBlock(script, myScript);
                                 }
                             }
                             else if (err != 0) return err;
@@ -1015,7 +1071,7 @@ namespace BFlatA
             try
             {
                 var buf = Encoding.UTF8.GetBytes(script.ToString());
-                using var st = File.Create(getBuildScriptFileName(scriptType));
+                using var st = File.Create(GetBuildScriptFileName(scriptType));
                 st.Write(buf);
                 st.Flush();
                 Console.WriteLine($"Script written!{NL}");
@@ -1024,68 +1080,11 @@ namespace BFlatA
             return;
         }
 
-        private static string AppendScriptBlock(string script, string myScript, ScriptType scriptType)
-                                        => script + (script == null || script.EndsWith("\n") ? "" : NL + NL) + myScript;
-
-        private static Process build(string myScript)
-        {
-            Console.WriteLine($"- Executing building script: {(myScript.Length > 22 ? myScript[..22] : myScript)}...");
-            Process buildProc = null;
-            if (!string.IsNullOrEmpty(myScript))
-            {
-                try
-                {
-                    if (myScript.StartsWith(COMPILER))
-                    {
-                        var paths = Environment.GetEnvironmentVariable("PATH").Split(IsLinux ? ':' : ';') ?? new[] { "./" };
-
-                        var compilerPath = paths.FirstOrDefault(i => File.Exists(i + PathSepChar + (IsLinux ? COMPILER : COMPILER + ".exe")));
-                        if (Directory.Exists(compilerPath))
-                        {
-                            buildProc = Process.Start(compilerPath + PathSepChar + COMPILER, myScript.Remove(0, COMPILER.Length));
-                        }
-                        else Console.WriteLine("Error:" + COMPILER + " doesn't exist in PATH!");
-                    }
-                    else buildProc = Process.Start(myScript);
-                }
-                catch (Exception ex) { Console.WriteLine(ex.Message); }
-            }
-            else Console.WriteLine($"Error:building script is emtpy!");
-            return buildProc;
-        }
-
-        private static Dictionary<string, string> FlattenResX(Dictionary<string, string> resBook, string projectName)
-        {
-            Dictionary<string, string> myResBook = new();
-            foreach (var r in resBook)
-            {
-                var fullPath = Path.GetFullPath(r.Key.Replace(PATH_PLACEHOLDER, RefPath));
-                if (Path.GetExtension(fullPath) == ".resx") foreach (var kv in CallResGen(fullPath, projectName)) myResBook.TryAdd(kv.Key, kv.Value);  //use absPath
-                else myResBook.TryAdd(r.Key, null);  //use relPath
-            }
-
-            return myResBook;
-        }
-
-        private static string getBuildScriptFileName(ScriptType scriptType = ScriptType.RSP) => scriptType switch
-        {
-            ScriptType.BAT => "build.cmd",
-            ScriptType.SH => "build.sh",
-            _ => "build.rsp"
-        };
-
-        private static char GetPathSepChar(ScriptType scriptType) => scriptType switch
-        {
-            ScriptType.SH => '/',
-            ScriptType.BAT => '\\',
-            _ => PathSepChar,
-        };
-
         private static int Main(string[] args)
         {
             List<string> restArgs;
 
-            List<string> codeBook = new(), libBook = new(), refProjectBook = new();
+            List<string> codeBook = new(), libBook = new(), refProjectBook = new(), nativeLibBook = new();
             Dictionary<string, string> resBook = new();
 
             Console.WriteLine($"BFlatA V{Assembly.GetEntryAssembly().GetName().Version} @github.com/xiaoyuvax/bflata{NL}" +
@@ -1267,7 +1266,7 @@ namespace BFlatA
                 //Parse project and all project references recursively.
 
                 Console.WriteLine($"{NL}--PARSING-----------------------------");
-                var err = ParseProject(ProjectFile, LibCache.ToArray(), TargetFx, PackageRoot, restArgs, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, resBook, refProjectBook, false);
+                var err = ParseProject(ProjectFile, LibCache.ToArray(), TargetFx, PackageRoot, restArgs, BuildMode, ScriptType, out string projectName, out _, out string script, codeBook, libBook, nativeLibBook, resBook, refProjectBook, false);
 
                 if (err == 0)
                 {
@@ -1278,7 +1277,7 @@ namespace BFlatA
                         //set default outputfile
                         outputFile ??= projectName + (IsLinux ? "" : ".exe");
                         Dictionary<string, string> myFlatResBook = FlattenResX(resBook, projectName);
-                        script = GenerateScript(projectName, restArgs, codeBook, libBook, myFlatResBook, ScriptType, BuildMode.Tree, PackageRoot, OutputType, false, outputFile);
+                        script = GenerateScript(projectName, restArgs, codeBook, libBook, nativeLibBook, myFlatResBook, ScriptType, BuildMode.Tree, PackageRoot, OutputType, false, outputFile);
                     }
 
                     if (!string.IsNullOrEmpty(script))
@@ -1291,7 +1290,7 @@ namespace BFlatA
                             if (UseBuild) Console.WriteLine($"{NL}--BUILDING----------------------------");
                             //Start Building
                             Console.WriteLine($"Building in FLAT mode:{projectName}...");
-                            var buildProc = build(ScriptType == ScriptType.RSP ? $"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd"));
+                            var buildProc = Build(ScriptType == ScriptType.RSP ? $"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp" : (IsLinux ? "./build.sh" : "./build.cmd"));
                             if (buildProc != null)
                             {
                                 buildProc.WaitForExit();
