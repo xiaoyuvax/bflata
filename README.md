@@ -12,7 +12,7 @@ BFlatA is a wrapper/building script generator for BFlat, a native C# compiler, f
 
   You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net).
   
-  BFlat is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
+  BFlata is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
 Update 23-03-03 (V1.2.0.0):
 - Adding support compiling .resx files by calling resgen.exe, which u must specify with `--resgen`. Namespace for each .resx file will be determine by checking corresponding code file. eg. myForm.cs for myForm.resx and Resources.Designer.cs for Resources.resx. But there might still be some problem running winform program with resources, as described in Known Issues below.
