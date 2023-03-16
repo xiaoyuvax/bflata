@@ -14,6 +14,10 @@ BFlatA is a wrapper/building script generator for BFlat, a native C# compiler, f
   
   BFlata is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
 
+Update 23-03-16 (V1.3.0.0):
+- Removed support for Windows Batch or Linux Shell Script (not meaningful if RSP is available), now BFlatA only generates RSP script.
+- Allow specifying one or more RSP files to be included by -inc options, in case certain fixed groups of building options need to be included.
+
 Update 23-03-15 (V1.2.1.1):
 - Add support for NativeLibrary.
 
