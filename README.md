@@ -50,7 +50,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 ##  Usage:
 
-	  Usage: bflata [build|build-il] <csproj file> [options]
+	Usage: bflata [build|build-il] <csproj file> [options]
 
 	  [build|build-il]                              Build with BFlat in %Path%, with -st option ignored.
 							If omitted, generate building script only, with -bm option still valid.
@@ -60,9 +60,9 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 	Options:
 	  -pr|--packageroot:<path to package storage>   eg.'C:\Users\%username%\.nuget\packages' or '$HOME/.nuget/packages'.
 
-	  -rp|--refpath:<any path to be related>        A reference path to generate paths for files in the building script,
-							can be optimized to reduce path lengths.Default is '.' (current dir).
-
+	  -h|--home:<MSBuildStartupDirectory>           Path to VS solution usually, or the equivalent execution path of MSBuild, default:current directory.
+							Caution: this path might not be the same path of the root project served as <.csproj> arg
+	, and is needed for entire solution to compile correctly.
 	  -fx|--framework:<moniker>                     The TFM compatible with the built-in .net runtime of BFlat(see 'bflat --info')
 							mainly purposed for matching dependencies, e.g. 'net7.0'
 
@@ -70,9 +70,9 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 							TREE = build each project alone and reference'em accordingly with -r option;
 							TREED = '-bm:tree -dd'.
 
-	  -st|--scripttype:<rsp|bat|sh>                 Response File(.rsp,default) or Windows Batch file(.cmd/.bat) or Linux Shell Script(.sh) file.
-
 	  --resgen:<path to resgen.exe>                 Path to Resource Generator(e.g. ResGen.exe),which compiles .resx file to binary.
+
+	  -inc|--include:<path to other RSP files>      You can use more than one -inc to specify multiple RSP files to include.
 
 
 	Shared Options(will also be passed to BFlat):
