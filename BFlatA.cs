@@ -241,7 +241,7 @@ namespace BFlatA
             if (nativeLibBook.Any())
             {
                 cmd.Append(lineFeed + "--ldflags ");
-                cmd.AppendJoin(lineFeed + "--ldflags ", nativeLibBook.Select(i => Path.GetFullPath(i.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory))).OrderBy(i => i));
+                cmd.AppendJoin(lineFeed + "--ldflags ", nativeLibBook.Select(i => "\"" + Path.GetFullPath(i.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory)) + "\"").OrderBy(i => i));
                 Console.WriteLine($"- Found {nativeLibBook.Count()} dependent native libs(*.lib)");
             }
 
@@ -958,6 +958,7 @@ namespace BFlatA
         }
 
         public static string TrimPathEnd(this string str) => str.TrimEnd(new[] { '/', '\\' });
+        public static string TrimPathQuotes(this string str) => str.Trim().Trim(new[] { '"', '\'' });
 
         public static int[] Ver2IntArray(string verStr) => verStr.Split('.').Select(i => int.TryParse(i, out int n) ? n : 0).ToArray();
 
@@ -1003,8 +1004,6 @@ namespace BFlatA
 
         private static int Main(string[] args)
         {
-            List<string> restArgs;
-
             List<string> codeBook = new(), libBook = new(), refProjectBook = new(), nativeLibBook = new();
             Dictionary<string, string> resBook = new();
 
@@ -1016,127 +1015,11 @@ namespace BFlatA
                 $"    - Embedded resources{NL}" +
                 $"  Before using BFlatA, you should get BFlat first at https://flattened.net.{NL}");
 
-            bool tryGetArg(string a, string shortName, string longName, out string value)
-            {
-                value = null;
-                var loa = a.ToLower();
-                if (!string.IsNullOrEmpty(shortName) && (loa.StartsWith(shortName + ARG_EVALUATION_CHAR) || loa.StartsWith(shortName + ' ')))
-                {
-                    //restParams for BFlat
-                    restArgs.Remove(a);
-                    value = a[(shortName.Length + 1)..];
-                    return true;
-                }
-                else if (!string.IsNullOrEmpty(longName) && (loa.StartsWith(longName + ARG_EVALUATION_CHAR) || loa.StartsWith(longName + ' ')))
-                {
-                    restArgs.Remove(a);
-                    value = a[(longName.Length + 1)..];
-                    return true;
-                }
-                return false;
-            }
+            //Parsing args
+            List<string> restArgs = ParseArgs(args);
 
-            //Parse input args
-            restArgs = new List<string>(args);
-            if (args.Length == 0 || args.Contains("-?") || args.Contains("/?") || args.Contains("-h") || args.Contains("--help"))
-            {
-                ShowHelp();
-                return 0;
-            }
-            else
-            {
-                // build must present at the first arg.
-                if (restArgs[0].ToLower() == "build")
-                {
-                    UseBuild = true;
-
-                    restArgs.RemoveAt(0);
-                }
-                else if (restArgs[0].ToLower() == "build-il")
-                {
-                    UseBuild = UseBuildIL = true;
-                    restArgs.RemoveAt(0);
-                }
-
-                if (!restArgs[0].StartsWith("-") && File.Exists(restArgs[0]))
-                {
-                    ProjectFile = restArgs[0];
-                    restArgs.RemoveAt(0);
-                }
-
-                //rearrange restArgs
-                restArgs = (" " + string.Join(' ', restArgs)).Split(" -", StringSplitOptions.RemoveEmptyEntries).Select(i => '-' + i.Trim()).ToList();
-
-                //process options
-                foreach (var a in restArgs.ToArray())
-                {
-                    if (tryGetArg(a, "-pr", "--packageroot", out string pr))
-                        if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr).TrimPathEnd();  //the ending PathSep may cause shell script variable invalid like $PRcommon.log/ after replacement by placeholder @
-                        else
-                        {
-                            Console.WriteLine($"Error:PacakgeRoot does not exist or is invalid!");
-                            return -1;
-                        }
-                    else if (tryGetArg(a, "-h", "--home", out string h))
-                        if (Directory.Exists(h)) MSBuildStartupDirectory = Path.GetFullPath(h).TrimPathEnd();
-                        else
-                        {
-                            Console.WriteLine($"Error:RefPath does not exist or is invalid!");
-                            return -1;
-                        }
-                    else if (tryGetArg(a, "-xx", "--exclufx", out string xx))
-                        if (Directory.Exists(xx)) RuntimePathExclu = Path.GetFullPath(xx).TrimPathEnd();
-                        else
-                        {
-                            Console.WriteLine($"Error:RuntimePath does not exist or is invalid!");
-                            return -1;
-                        }
-                    else if (tryGetArg(a, "", "--resgen", out string rg))
-                        if (File.Exists(rg)) ResGenPath = Path.GetFullPath(rg).TrimPathEnd();
-                        else
-                        {
-                            Console.WriteLine($"Error:Resgen.exe does not exist or is invalid!");
-                            return -1;
-                        }
-                    else if (tryGetArg(a, "-inc", "--include", out string inc) && File.Exists(inc)) IncludedRSPFiles.Add(inc);
-                    else if (tryGetArg(a, "", "--arch", out string ax)) Architecture = ax.ToLower();
-                    else if (tryGetArg(a, "-bm", "--buildmode", out string bm)) BuildMode = ParseBuildMode(bm);
-                    else if (tryGetArg(a, "", "--target", out string t)) OutputType = t;
-                    else if (tryGetArg(a, "-fx", "--framework", out string fx)) TargetFx = fx.ToLower();
-                    else if (tryGetArg(a, "", "--os", out string os)) OS = os.ToLower();
-                    else if (tryGetArg(a, "-o", "--out", out string o)) //hijack -o arg of BFlat, and it shall not be passed to denpendent project
-                    {
-                        OutputFile = o;
-                        restArgs.Remove(a);
-                    }
-                    else if (a.ToLower() == "--verbose")
-                    {
-                        UseVerbose = true;
-                    }
-                    else if (a.ToLower() == "-dd" || a.ToLower() == "--depdep")
-                    {
-                        DepositLib = true;
-                        restArgs.Remove(a);
-                    }
-                }
-            }
-
-            //init arg values
-            if (BuildMode == BuildMode.TreeDepositDependency)
-            {
-                BuildMode = BuildMode.Tree;
-                DepositLib = true;
-            }
-
-            if (UseBuild)
-            {
-                if (BuildMode == BuildMode.None) BuildMode = BuildMode.Flat; //default BuildMode for Build option
-            }
-            else if (BuildMode == BuildMode.Tree) Console.WriteLine("Warning:.rsp script generated under TREE mode is not buildable!");
-
-            if (string.IsNullOrEmpty(TargetFx)) TargetFx = "net7.0";
-
-            if (string.IsNullOrEmpty(RuntimePathExclu)) RuntimePathExclu = GetFrameworkPath(NETCORE_APP);
+            if (restArgs == null) return -1;
+            else if (restArgs.Count == 0) return 0;
 
             //echo args.
             Console.WriteLine($"{NL}--ARGS--------------------------------");
@@ -1203,15 +1086,6 @@ namespace BFlatA
 
                     if (!string.IsNullOrEmpty(script))
                     {
-                        foreach (string i in IncludedRSPFiles)
-                            try
-                            {
-                                using StreamReader sr = new(File.OpenRead(i));
-                                var rsp = sr.ReadToEnd()?.Trim();
-                                if (!string.IsNullOrEmpty(rsp)) script += NL + rsp;
-                            }
-                            catch (Exception ex) { Console.WriteLine(ex.Message); }
-
                         //Write to script file
                         WriteScript(projectName, script);
 
@@ -1245,6 +1119,176 @@ namespace BFlatA
             }
 
             return 0;
+        }
+
+        public static List<string> GetRSPLines(IEnumerable<string> rspFiles)
+        {
+            List<string> lines = new();
+            foreach (string i in rspFiles)
+                try
+                {
+                    using StreamReader sr = new(File.OpenRead(i));
+                    while (!sr.EndOfStream)
+                    {
+                        var line = sr.ReadLine()?.Trim();
+                        if (!string.IsNullOrEmpty(line)) lines.Add(line);
+                    }
+                }
+                catch (Exception ex) { Console.WriteLine(ex.Message); }
+            return lines;
+        }
+
+        public static List<string> RSPLinesToAppend = new();
+
+        public static List<string> ParseArgs(IEnumerable<string> args, bool reArrange = true)
+        {
+            //Parse input args
+            List<string> restArgs = new(args);
+            List<string> includedRSPFiles = new();
+            if (args.Count() == 0 || args.Contains("-?") || args.Contains("/?") || args.Contains("-h") || args.Contains("--help"))
+            {
+                ShowHelp();
+            }
+            else
+            {
+                // build must present at the first arg.
+                if (restArgs[0].ToLower() == "build")
+                {
+                    UseBuild = true;
+                    restArgs.RemoveAt(0);
+                }
+                else if (restArgs[0].ToLower() == "build-il")
+                {
+                    UseBuild = UseBuildIL = true;
+                    restArgs.RemoveAt(0);
+                }
+
+                if (string.IsNullOrEmpty(ProjectFile) && !restArgs[0].StartsWith("-") && File.Exists(restArgs[0]))
+                {
+                    ProjectFile = restArgs[0];
+                    restArgs.RemoveAt(0);
+                }
+
+                //rearrange restArgs
+                if (reArrange) restArgs = (" " + string.Join(' ', restArgs)).Split(" -", StringSplitOptions.RemoveEmptyEntries).Select(i => '-' + i.Trim()).ToList();
+
+                //process options
+                foreach (var a in restArgs.ToArray())
+                {
+                    if (TryGetArg(a, "-pr", "--packageroot", restArgs, out string pr))
+                    {
+                        pr = pr.TrimPathQuotes();
+                        if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr).TrimPathEnd();  //the ending PathSep may cause shell script variable invalid like $PRcommon.log/ after replacement by placeholder @
+                        else
+                        {
+                            Console.WriteLine($"Error:PacakgeRoot does not exist or is invalid!");
+                            return null;
+                        }
+                    }
+                    else if (TryGetArg(a, "-h", "--home", restArgs, out string h))
+                    {
+                        h = h.TrimPathQuotes();
+                        if (Directory.Exists(h)) MSBuildStartupDirectory = Path.GetFullPath(h).TrimPathEnd();
+                        else
+                        {
+                            Console.WriteLine($"Error:RefPath does not exist or is invalid!");
+                            return null;
+                        }
+                    }
+                    else if (TryGetArg(a, "-xx", "--exclufx", restArgs, out string xx))
+                    {
+                        xx = xx.TrimPathQuotes();
+                        if (Directory.Exists(xx)) RuntimePathExclu = Path.GetFullPath(xx).TrimPathEnd();
+                        else
+                        {
+                            Console.WriteLine($"Error:RuntimePath does not exist or is invalid!");
+                            return null;
+                        }
+                    }
+                    else if (TryGetArg(a, "", "--resgen", restArgs, out string rg))
+                    {
+                        rg= rg.TrimPathQuotes();
+                        if (File.Exists(rg)) ResGenPath = Path.GetFullPath(rg).TrimPathEnd();
+                        else
+                        {
+                            Console.WriteLine($"Error:Resgen.exe does not exist or is invalid!");
+                            return null;
+                        }
+                    }
+                    else if (TryGetArg(a, "-inc", "--include", restArgs, out string inc) && File.Exists(inc))
+                    {
+                        includedRSPFiles.Add(inc);
+                    }
+                    else if (TryGetArg(a, "", "--arch", restArgs, out string ax)) Architecture = ax.ToLower();
+                    else if (TryGetArg(a, "-bm", "--buildmode", restArgs, out string bm)) BuildMode = ParseBuildMode(bm);
+                    else if (TryGetArg(a, "", "--target", restArgs, out string t)) OutputType = t;
+                    else if (TryGetArg(a, "-fx", "--framework", restArgs, out string fx)) TargetFx = fx.ToLower();
+                    else if (TryGetArg(a, "", "--os", restArgs, out string os)) OS = os.ToLower();
+                    else if (TryGetArg(a, "-o", "--out", restArgs, out string o)) //hijack -o arg of BFlat, and it shall not be passed to denpendent project
+                    {
+                        OutputFile = o;
+                        restArgs.Remove(a);
+                    }
+                    else if (a.ToLower() == "--verbose")
+                    {
+                        UseVerbose = true;
+                    }
+                    else if (a.ToLower() == "-dd" || a.ToLower() == "--depdep")
+                    {
+                        DepositLib = true;
+                        restArgs.Remove(a);
+                    }
+                }
+            }
+
+            //process bflata args from included RSP files(the later will overwrite the earlier)
+            if (includedRSPFiles.Count > 0)
+            {
+                List<string> rspLines = GetRSPLines(includedRSPFiles);
+                var rspRestArgs = ParseArgs(rspLines, false);
+                restArgs.AddRange(rspRestArgs.Except(restArgs));
+                IncludedRSPFiles = includedRSPFiles;
+            }
+
+            //init arg values
+            if (BuildMode == BuildMode.TreeDepositDependency)
+            {
+                BuildMode = BuildMode.Tree;
+                DepositLib = true;
+            }
+
+            if (UseBuild)
+            {
+                if (BuildMode == BuildMode.None) BuildMode = BuildMode.Flat; //default BuildMode for Build option
+            }
+            else if (BuildMode == BuildMode.Tree) Console.WriteLine("Warning:.rsp script generated under TREE mode is not buildable!");
+
+            if (string.IsNullOrEmpty(TargetFx)) TargetFx = "net7.0";
+
+            if (string.IsNullOrEmpty(RuntimePathExclu)) RuntimePathExclu = GetFrameworkPath(NETCORE_APP);
+
+            return restArgs;
+        }
+
+        public static bool TryGetArg(string a, string shortName, string longName, List<string> restArgs, out string value)
+        {
+            value = null;
+            var loa = a.ToLower();
+            if (!string.IsNullOrEmpty(shortName) && (loa.StartsWith(shortName + ARG_EVALUATION_CHAR) || loa.StartsWith(shortName + ' ')))
+            {
+                //restParams for BFlat
+                restArgs.Remove(a);
+                value = a[(shortName.Length + 1)..];
+
+                return true;
+            }
+            else if (!string.IsNullOrEmpty(longName) && (loa.StartsWith(longName + ARG_EVALUATION_CHAR) || loa.StartsWith(longName + ' ')))
+            {
+                restArgs.Remove(a);
+                value = a[(longName.Length + 1)..];
+                return true;
+            }
+            return false;
         }
     }
 }
