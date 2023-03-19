@@ -15,7 +15,7 @@ BFlatA is a wrapper/build script generator for BFlat, a native C# compiler, for 
   BFlatA is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
   
 Update 23-03-19 (V1.4.0.0)
-- Introduce concept of BFA file(literally BFlatA Arguments file) instead of RSP file, which can be used with -inc:<BFA file> option to combine multiple arg profiles to generate build script, and it supports macros and doesn't have to list args as "one arg per line". BFA file can be treated like a project file, in order to switch building different projects more conveniently, with well-organized differnt sets of args.
+- Introduce concept of BFA file(literally BFlatA Arguments file) instead of RSP file, which can be used with -inc:<BFA file> option to combine multiple arg profiles to generate build script, and it supports macros and doesn't have to store args as "one arg per line". BFA file can be treated like a project file, in order to switch different projects more conveniently, if with well-organized sets of args.
 - Improved process for quotes and macros in args.
 - Improved processing more well-known properties in csproj file, such as <NoStdLib>, <BaseAddress>,<linkerSubsystem>, <entrypointSymbol>, etc.
 
