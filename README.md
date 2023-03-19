@@ -159,7 +159,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 ## Compile from source:
  Since Bflata is a very tiny program that you can use any of following compilers to build it:
-- BFlat [github.com/bflattened/bflat](https://github.com/bflattened/bflat) 
+- [Bflat](https://github.com/bflattened/bflat) (Download binary [here](https://flattened.net)
 - Dotnet C# compiler
 - Mono C# compiler
 
