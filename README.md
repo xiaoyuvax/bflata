@@ -14,8 +14,9 @@ BFlatA is a wrapper/build script generator for BFlat, a native C# compiler, for 
   
   BFlatA is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
   
-Update 23-03-19 (V1.4.0.0)
-- Introduce concept of BFA file(literally BFlatA Arguments file) instead of RSP file, which can be used with -inc:<BFA file> option to combine multiple arg profiles to generate build script, and it supports macros and doesn't have to store args as "one arg per line". BFA file can be treated like a project file, in order to switch different projects more conveniently, if with well-organized sets of args.
+Update 23-03-19 (V1.4.1.0)
+- Introduced concept of BFA file(literally BFlatA Arguments file) instead of RSP file, which can be used with -inc:<BFA file> option to combine multiple arg profiles to generate build script, and it supports macros and doesn't have to store args as "one arg per line". BFA file can be treated like a project file, in order to switch different projects more conveniently, if with well-organized sets of args.
+- Introduced new `flatten|flatten-all` verbs allowing extraction of code files together with their dependencies/resources to specified dest location, where project files are organized in a flattened, GO-like path hierachy, which can be directly built by BFlat (similar with `go build`), `flatten-all` also copies all dependent libs so that you can pack the path structure together with all dependencies as a whole.
 - Improved process for quotes and macros in args.
 - Improved processing more well-known properties in csproj file, such as `<NoStdLib>, <BaseAddress>, <linkerSubsystem>, <EntrypointSymbol>`, etc.
 
@@ -57,7 +58,10 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 	  Usage: bflata [build|build-il] <root csproj file> [options]
 
-	  [build|build-il]                              Build with BFlat in %Path%.
+	  [build|build-il|flatten|flatten-all]          BUILD|BUILD-IL = build with BFlat in %Path% in native or in IL.
+							FLATTEN = extract code files from project hierachy into a "flattened, Go-like" path hierachy,
+							FALTTEN-ALL = flatten + copy all dependencies and resources to dest path,
+							both with dependency references written to a BFA file.
 							If omitted, generate build script only, with -bm option still valid.
 
 	  <root csproj file>                            Must be the 2nd arg if 'build' specified, or the 1st otherwise, only 1 root project allowed.
@@ -103,7 +107,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 							where dependencies of child projects are deposited and served to parent project,
 							as to fulfill any possible reference requirements
 
-	  -xx|--exclufx:<dotnet Shared Framework path>  Path where lib exclus will be extracted from.
+	  -xx|--exclufx:<dotnet Framework path>         Path where lib exclus will be extracted from.
 							e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
 							Extracted exclus stored in '<moniker>.exclu' for further use with moniker specified by -fx opt.
 							If path not given, BFlatA searches -pr:<path> with -fx:<framework>, automatically.
