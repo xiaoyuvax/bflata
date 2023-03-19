@@ -5,14 +5,24 @@
 
 `BFlatA Purpose: Write your program in VS, and Build it Flat` (with [bflat](https://github.com/bflattened/bflat))
 
-BFlatA is a wrapper/build script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
+BFlatA is a wrapper, build script generator and project flattener for BFlat - a native C# compiler, in order to recusively building/flattening C# project with:
  - Referenced projects
  - Nuget package dependencies
- - Embedded resources  
+ - Native library dependencies
+ - Embedded resources
+ etc.
+
+An intuitive simple demo of usage:
+
+	bflata build myproject.csproj
+
+would produce a `myproject.exe` and a `build.rsp` if bflat is properly installed, set in %PATH%, and args properly served.
 
   You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net).
   
   BFlatA is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
+  
+    
   
 Update 23-03-19 (V1.4.1.0)
 - Introduced concept of BFA file(literally BFlatA Arguments file) instead of RSP file, which can be used with -inc:<BFA file> option to combine multiple arg profiles to generate build script, and it supports macros and doesn't have to store args as "one arg per line". BFA file can be treated like a project file, in order to switch among different projects more conveniently, if well-organized.
