@@ -5,7 +5,7 @@
 
 `BFlatA Purpose: Write your program in VS, and Build it Flat` (with [bflat](https://github.com/bflattened/bflat))
 
-BFlatA is a wrapper, build script generator and project flattener for BFlat - a native C# compiler, in order to recusively building/flattening C# project with:
+BFlatA is a wrapper, build script generator and project flattener for BFlat - a native C# compiler, in order to recusively build/flatten C# projects with their:
  - Referenced projects
  - Nuget package dependencies
  - Native library dependencies
