@@ -769,15 +769,18 @@ namespace BFlatA
             {
                 // build must present at the first arg.
                 var verb = restArgs[0].ToLower();
-                if (AllowedVerbs.Contains(verb)) Action = verb switch
+                if (AllowedVerbs.Contains(verb))
                 {
-                    "build" => Verb.Build,
-                    "build-il" => Verb.BuildIl,
-                    "flatten" => Verb.Flatten,
-                    "flatten-all" => Verb.FlattenAll,
-                    _ => Verb.Script
-                };
-                restArgs.RemoveAt(0);
+                    Action = verb switch
+                    {
+                        "build" => Verb.Build,
+                        "build-il" => Verb.BuildIl,
+                        "flatten" => Verb.Flatten,
+                        "flatten-all" => Verb.FlattenAll,
+                        _ => Verb.Script
+                    };
+                    restArgs.RemoveAt(0);
+                }
 
                 if (string.IsNullOrEmpty(ProjectFile) && !restArgs[0].StartsWith("-") && File.Exists(restArgs[0])) //input args don't need trimming quotes in path
                 {
