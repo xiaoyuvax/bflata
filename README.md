@@ -29,7 +29,7 @@ would produce a `myproject_flat` folder, into which all code files, libs, resour
 ## Update Logs   
 
 
-Update 23-03-19 (V1.4.2.0)
+Update 23-03-22 (V1.4.2.0)
 - Allow specify an external linker instead of that comes with bflat, such as MSVC linker(link.exe).
 Update 23-03-19 (V1.4.1.0)
 - Introduced BFA file(literally BFlatA Arguments file) instead of RSP file, which can be used with -inc:<BFA file> option to combine multiple arg profiles to generate build script, and it supports macros and doesn't have to store args as "one arg per line". BFA file can be treated like a project file, in order to switch among different projects more conveniently, if well-organized.
