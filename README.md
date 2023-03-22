@@ -27,7 +27,10 @@ would produce a `myproject_flat` folder, into which all code files, libs, resour
   BFlatA is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
   
 ## Update Logs   
-  
+
+
+Update 23-03-19 (V1.4.2.0)
+- Allow specify an external linker instead of that comes with bflat, such as MSVC linker(link.exe).
 Update 23-03-19 (V1.4.1.0)
 - Introduced BFA file(literally BFlatA Arguments file) instead of RSP file, which can be used with -inc:<BFA file> option to combine multiple arg profiles to generate build script, and it supports macros and doesn't have to store args as "one arg per line". BFA file can be treated like a project file, in order to switch among different projects more conveniently, if well-organized.
 - Introduced new `flatten|flatten-all` verbs allowing extraction of code files together with their dependencies/resources to specified dest location, where project files are organized in a flattened, GO-like path hierachy, which can be directly built by BFlat (similar with `go build`), `flatten-all` also copies all dependent libs so that you can pack the path structure together with all dependencies as a whole.
@@ -72,11 +75,8 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 	  Usage: bflata [build|build-il] <root csproj file> [options]
 
-	  [build|build-il|flatten|flatten-all]          BUILD|BUILD-IL = build with BFlat in %Path% in native or in IL.
-							FLATTEN = extract code files from project hierachy into a "flattened, Go-like" path hierachy,
-							FALTTEN-ALL = flatten + copy all dependencies and resources to dest path,
-							both with dependency references written to a BFA file.
-							If omitted, generate build script only, with -bm option still valid.
+	  [build|build-il]                              Build with BFlat in %Path%, with -st option ignored.
+													If omitted, generate build script only, with -bm option still valid.
 
 	  <root csproj file>                            Must be the 2nd arg if 'build' specified, or the 1st otherwise, only 1 root project allowed.
 
@@ -85,22 +85,24 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 	  -pr|--packageroot:<path to package storage>   eg.'C:\Users\%username%\.nuget\packages' or '$HOME/.nuget/packages'.
 
 	  -h|--home:<MSBuildStartupDirectory>           Path to VS solution usually, default:current directory.
-							Caution: this path may not be the same as <root csproj file>,
-							and is needed for entire solution to compile correctly.
+													Caution: this path may not be the same as <root csproj file>,
+													and is needed for entire solution to compile correctly.
 
 	  -fx|--framework:<moniker>                     The TFM compatible with the built-in .net runtime of BFlat(see 'bflat --info')
-							mainly purposed for matching dependencies, e.g. 'net7.0'
+													mainly purposed for matching dependencies, e.g. 'net7.0'
 
 	  -bm|--buildmode:<flat|tree|treed>             FLAT = flatten project tree to one for building;
-							TREE = build each project alone and reference'em accordingly with -r option;
-							TREED = '-bm:tree -dd'.
+													TREE = build each project alone and reference'em accordingly with -r option;
+													TREED = '-bm:tree -dd'.
 
 	  --resgen:<path to resgen.exe>                 Path to Resource Generator(e.g. ResGen.exe).
 
+	  --linker:<path to linker>                     Path to linker other than that comes with BFlat(e.g. path to MSVC Llinker: link.exe).
+
 	  -inc|--include:<path to BFA file>             BFA files(.bfa) contain any args for BFlatA, each specified by -inc:<filename>.
-							Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).
-							BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.
-							If any arg duplicated, valid latters will overwrite, except for <root csproj file>.
+													Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).
+													BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.
+													If any arg duplicated, valid latters will overwrite, except for <root csproj file>.
 
 
 	Shared Options with BFlat:
@@ -118,13 +120,13 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 	Obsolete Options:
 
 	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree', equivalently '-bm:treed',
-							where dependencies of child projects are deposited and served to parent project,
-							as to fulfill any possible reference requirements
+													where dependencies of child projects are deposited and served to parent project,
+													as to fulfill any possible reference requirements
 
-	  -xx|--exclufx:<dotnet Framework path>         Path where lib exclus will be extracted from.
-							e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
-							Extracted exclus stored in '<moniker>.exclu' for further use with moniker specified by -fx opt.
-							If path not given, BFlatA searches -pr:<path> with -fx:<framework>, automatically.
+	  -xx|--exclufx:<dotnet Shared Framework path>  Path where lib exclus will be extracted from.
+													e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
+													Extracted exclus stored in '<moniker>.exclu' for further use with moniker specified by -fx opt.
+													If path not given, BFlatA searches -pr:<path> with -fx:<framework>, automatically.
 
 
 	Note:
@@ -154,7 +156,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 	  MSBuildThisFileExtension   = .csproj
 	  MSBuildThisFileFullPath    = c:\ProjectPath
 	  MSBuildThisFileName        = ProjectFile
-	  MSBuildStartupDirectory    = C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\BFlatA\bin\Debug\net7.0
+	  MSBuildStartupDirectory    = D:\Repos\bflata\bin\Debug\net7.0
       
 
 ## Compile from source:
@@ -168,7 +170,7 @@ of course BFlat is prefered to build the program entirely to native code(without
 ## BFA file
 - BFA file(.bfa) contains any valid args for BFlatA, including `build` and `<root csproj file>`, each BFA file can be specified by a single `-inc:<filename>`. Therefore, for a project, you can use `bflata -inc:myproject.bfa` to build the project with all args written in that myproject.bfa file. You can also store some shared args in shared BFA file, such as those longer linker args(`--ldflags:...`) and reference them when build different projects, e.g. `bflata build -inc:MyProject.bfa -inc:SharedArgSet1.bfa`.
 - Unlike RSP file, each line in BFA file may contain multiple args with macros enabled, and these args are to be parsed by bflata and finally merged in the output build script.
-- Therefore, BFAs looks and can be used like project-specific build profile, or even somewhat equivalent to a .csproj file, you can use them flexibly。
+- Therefore, BFAs looks and can be used like project-specific build profile, or even somewhat equivalent to a .csproj file, you can use them flexiblyă€‚
 - If any arg duplicated, valid latter occurrences will overwrite the formers, except for the <root csproj file> arg, which must present in the 1st or 2nd pos of the arg list.
 - Like RSP file, lines start with "#" in BFA file is considered comments.
 - You can see macros supported by using help options, which are mostly MSBuild compatible.
