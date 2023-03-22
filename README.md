@@ -1,4 +1,4 @@
-
+[![Language switcher](https://img.shields.io/badge/Language%20%2F%20%E8%AF%AD%E8%A8%80-Chinese%20%2F%20%E4%B8%AD%E6%96%87-blue)](https://github.com/xiaoyuvax/bflata/blob/main/README.zh-cn.md)
 
 
 # BFlatA
@@ -274,4 +274,3 @@ and following is the content of the build script (Response File) generated above
     -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.primitives\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll
     -r C:\Users\xiaoyu\.nuget\packages\nest\7.17.5\lib\netstandard2.0\Nest.dll
 
-Otherwise, you can generate Windows Batch or Linux Shell Script without the "build" keyword, and select ScriptType by `-st` option, and BuildMode by `-bm` option.
