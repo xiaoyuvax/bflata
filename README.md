@@ -272,4 +272,3 @@ and following is the content of the build script (Response File) generated above
     -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.primitives\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll
     -r C:\Users\xiaoyu\.nuget\packages\nest\7.17.5\lib\netstandard2.0\Nest.dll
 
-Otherwise, you can generate Windows Batch or Linux Shell Script without the "build" keyword, and select ScriptType by `-st` option, and BuildMode by `-bm` option.
