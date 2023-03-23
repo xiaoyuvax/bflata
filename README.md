@@ -71,8 +71,6 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 - A new `-dd` (Deposit Dependencies) option is introduced for compiling projects who uses references of child projects indirectly, and still offering certain extent of version consistency, where dependencies are added-up (deposited) along the hiearchy line and be accumulatively served to the parent project level by level (if any dependency version conflict upon merging with parent level, higher version will be retained, as to guarantee maximal version compatibility).
 
 
-	##  Usage:
-
 	  Usage: bflata [build|build-il] <root csproj file> [options]
 
 	  [build|build-il|flatten|flatten-all]          BUILD|BUILD-IL = build with BFlat in %Path% in native or in IL.
