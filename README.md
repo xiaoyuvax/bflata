@@ -16,7 +16,7 @@ Some intuitive demos of usage:
 
 	bflata build myproject.csproj
 
-would produce a `myproject.exe` and a `build.rsp` if bflat is properly installed, set in %PATH%, and args properly served, if the `build` verb not specified, only rsp file generated, which you can use to build later with BFlat (please notice the difference between BFlat, the compiler and BFlatA, the wrapper).
+would produce a `myproject.exe` and a `build.rsp` if bflat is properly installed, set in %PATH%, and args properly served. If the `build` verb not specified, only rsp file generated, which you can use to build later with BFlat (please notice the difference between BFlat, the compiler and BFlatA, the wrapper).
 
 	bflata flatten-all myproject.csproj
 
