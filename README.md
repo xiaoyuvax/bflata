@@ -56,10 +56,10 @@ Update 23-02-26 (V1.1.0.0):
 > 'System.Security.Cryptography, Version=7.0.0.0, Culture=neutral,
 > PublicKeyToken=b03f5f7f11d50a3a'
 
-BFlatA introduced a mechanism called "Exclu" to exclude packages from dependencies during scripting. Literally, Exclu means the Excluded Packages. BFlatA supports extracting names to be excluded from Dotnet runtime, more exactly, the specific Shared Frameworks such as Microsoft.NETCore.App(which is what BFlat incorprates so far), to generate ".exclu" file, which can be reused in later builds, by using the `-xx` option which uses the monker name specified by `-fx` to save/load Exclus from files accordingly, in addition to an always-load "packages.exclu" file, if exists, where you can put in custom Exclus.
+BFlatA introduced a mechanism called "Exclu" to exclude packages from dependencies during scripting. Literally, Exclu means the Excluded Packages. BFlatA supports extracting names to be excluded from Dotnet runtime, more exactly, the specific Shared Frameworks such as Microsoft.NETCore.App(which is what BFlat incorprates so far), to generate ".exclu" file, which can be reused in later builds, by using the `-xx` option which uses the moniker name specified by `-fx` to save/load Exclus from files accordingly, in addition to an always-load "packages.exclu" file, if exists, where you can put in custom Exclus.
 I provided a `net7.0.exclu` file in the repository as the default Exclu for net7.0, which is the default target of both BFlata and BFlat by now, and you can copy it to ur working directory, if you don't want to extract Exclus by youself from Dotnet runtime(with -xx option).
 
-- 'build-il' is allowed now. This building mode is consistent with that of BFlat, and it only affects root project. Dependent projects will always being built under TREE mode with 'build-il' on.
+- 'build-il' is allowed now. This verb is consistent with that of BFlat, and it only affects root project. Dependent projects will always being built under TREE mode with 'build-il' on.
 - A new Build Mode `-bm:treed` is introduced to provide a shortcut for `-bm:tree -dd`, simply a short.
 - BFlat style args are supported now, u can use both space or ":" for evaluation of argument values.
 - BFlat's `-o|--out<file>`  option is now hijacked by BFlatA as to be properly scripted in the generated script. At least, it will not be passed to every referenced projects.
@@ -161,8 +161,8 @@ Note: a single .rsp file itself does not support building project Tree, instead 
       
 
 ## Compile from source:
- Since Bflata is a very tiny program that you can use any of following compilers to build it:
-- [Bflat](https://github.com/bflattened/bflat) (Download binary [here](https://flattened.net))
+ Since BflatA is a very tiny program that you can use any of following compilers to build it:
+- [Bflat](https://github.com/bflattened/bflat) (Download binary [here](https://flattened.net), recommended.)
 - Dotnet C# compiler
 - Mono C# compiler
 
@@ -170,7 +170,7 @@ of course BFlat is prefered to build the program entirely to native code(without
 
 ## BFA file
 - BFA file(.bfa) contains any valid args for BFlatA, including `build` and `<root csproj file>`, each BFA file can be specified by a single `-inc:<filename>`. Therefore, for a project, you can use `bflata -inc:myproject.bfa` to build the project with all args written in that myproject.bfa file. You can also store some shared args in shared BFA file, such as those longer linker args(`--ldflags:...`) and reference them when build different projects, e.g. `bflata build -inc:MyProject.bfa -inc:SharedArgSet1.bfa`.
-- Unlike RSP file, each line in BFA file may contain multiple args with macros enabled, and these args are to be parsed by bflata and finally merged in the output build script.
+- Unlike RSP file, each line in BFA file may contain multiple options(option is a type of args) with macros enabled, but not for barehead args such as the "build" verbs, <project path>, and these option strings are to be parsed by bflata and finally merged in the output build script. Barehead args(which has no option cap) must be written in a single line each. And so far the VERBs and the root .csproj file must present at the first two lines(comment lines skipped) in BFA file.
 - Therefore, BFAs looks and can be used like project-specific build profile, or even somewhat equivalent to a .csproj file, you can use them flexiblyă€‚
 - If any arg duplicated, valid latter occurrences will overwrite the formers, except for the <root csproj file> arg, which must present in the 1st or 2nd pos of the arg list.
 - Like RSP file, lines start with "#" in BFA file is considered comments.
