@@ -2,7 +2,7 @@
 
 # BFlatA
 
-`目的：VS写工程，打平用[BFlat](https://github.com/bflattened/bflat)编译（成本机代码）`。
+目的：VS写工程，打平用[BFlat](https://github.com/bflattened/bflat)编译（成本机代码）。
 
 BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用于递归地构建/平坦化原本是用MSBuild（由Visual Studio创建）的C#项目(.csproj)，包括其:
 
