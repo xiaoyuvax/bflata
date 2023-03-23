@@ -79,15 +79,15 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 
 ##  使用说明：
-		Usage: bflata [build|build-il] <root csproj file> [options]
 
-		[build|build-il|flatten|flatten-all]          BUILD|BUILD-IL 意思是使用 %Path% 中的 BFlat 进行本地或 IL 编译。
-							      FLATTEN 表示从项目层次结构中提取代码文件，并将其放入“平铺的、类似 Go 的”路径层次结构中，
-						              同时将依赖引用写入 BFA 文件中。	
-					
-							      如果省略，只生成构建脚本，但 -bm 选项仍然有效。
+	Usage: bflata [build|build-il] <root .csproj file> [options]
 
-		<root csproj file>                            如果指定了 'build' 参数，则必须是第二个参数；否则，必须是第一个参数。只允许有一个根项目。 
+	[build|build-il|flatten|flatten-all]          BUILD|BUILD-IL 意思是使用 %Path% 中的 BFlat 进行本地或 IL 编译。
+						      FLATTEN 表示从项目层次结构中提取代码文件，并将其放入“平铺的、类似 Go 的”路径层次结构中，
+						      同时将依赖引用写入 BFA 文件中。						
+						      如果省略，只生成构建脚本，但 -bm 选项仍然有效。
+
+	<root csproj file>                            如果指定了 'build' 参数，则必须是第二个参数；否则，必须是第一个参数。只允许有一个根项目。 
 
     选项：
 	-pr|--packageroot:<path to package storage>       例如：'C:\Users\%username%\.nuget\packages' 或 '$HOME/.nuget/packages'。
