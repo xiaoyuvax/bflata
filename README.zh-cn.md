@@ -2,20 +2,56 @@
 
 # BFlatA
 
-目的：VS写工程，打平编译（成本机代码）。
+目的：VS写工程，打平编译（成本机代码）。(https://github.com/bflattened/bflat)
 
-BFlatA 是套壳BFlat（C#本机代码编译器）用于递归构建带有以下内容的 `.csproj` 文件的包装器/构建脚本生成器：
+BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用于递归地构建/平坦化原本是用MSBuild（由Visual Studio创建）的C#项目(.csproj)，包括其:
 
 - 引用的项目（不管引用关系有多复杂）
 - Nuget 包依赖项（包括包的依赖）
 - 嵌入式资源
+- 本地库依赖项
+- .......
+
+一些直观的用法示例：
+
+如果bflat已正确安装、设置在%PATH%中并且参数正确，则运行以下命令：
+
+	bflata build myproject.csproj
+
+将生成myproject.exe和build.rsp。如果未指定build动词，则仅生成rsp文件，您可以稍后使用BFlat构建（请注意编译器BFlat和包装器BFlatA之间的区别）。
+
+如果运行以下命令：
+
+	bflata flatten-all myproject.csproj
+
+将生成一个名为myproject_flat的文件夹，其中包含myproject的所有代码文件、库和资源，甚至包括所有子项目所引用的内容，作为完整的项目包。您可以直接使用bflat构建此项目，如'go build'。
 
 您可以在 [flattened.net](https://flattened.net) 下载原生 C# 编译器 BFlat。
 
-本工程与BFlat的这个问题相关：https://github.com/bflattened/bflat/issues/61
+bflat与BFlatA的这个问题相关：https://github.com/bflattened/bflat/issues/61
+
+更新时间：23-03-22 (版本号：V1.4.2.0)
+- 允许指定一个外部链接器，而不是与bflat一起提供的链接器，例如MSVC链接器(link.exe)。
+
+更新时间：23-03-19 (版本号：V1.4.1.0)
+- 引入BFA文件（字面意思为BFlatA参数文件），而不是RSP文件，可以使用-inc:<BFA文件>选项将多个参数文件合并以生成构建脚本，它支持宏，并且不必将参数存储为“每行一个参数”。如果组织得当，可以像项目文件一样处理BFA文件，以便更方便地在不同的项目之间切换。
+
+- 引入新的“flatten | flatten-all”动词，允许将代码文件及其依赖项/资源提取到指定的目标位置，其中项目文件按打平的、类似GO的路径层次结构组织，可以直接由BFlat构建（类似于“go build”），“flatten-all”还复制所有依赖库，以便您将路径结构和所有依赖项一起打包。
+
+- 改进了参数中引号和宏的处理。
+
+- 改进了对csproj文件中更为常见的属性的处理，例如'NoStdLib'、'BaseAddress'、'linkerSubsystem'、'EntrypointSymbol'等。
+
+更新时间：23-03-16 (版本号：V1.3.0.0)
+- 移除了对Windows批处理或Linux Shell脚本的支持（如果有RSP文件，则没有意义），现在BFlatA仅生成RSP脚本。
+
+- 允许使用-inc:<rsp文件>选项指定一个或多个要包含的RSP文件，以防需要包含某些固定构建选项的特定组，并在某些项目中使用。通常可以将链接器参数、主路径放入一个rsp文件中，并将其与指定的csproj一起包含。
+
+更新时间：23-03-15 (版本号：V1.2.1.1)
+- 添加对NativeLibrary的支持。
 
 更新 23-03-03 (V1.2.0.0)：
-- 增加了通过调用 resgen.exe 编译 .resx 文件的支持，需要使用 --resgen 参数指定。每个 .resx 文件的命名空间将通过检查相应的代码文件确定。例如，myForm.resx 对应 myForm.cs，Resources.resx 对应 Resources.Designer.cs。但是在下面的已知问题中描述的使用资源运行 winform 程序可能仍然存在一些问题。
+- 添加调用resgen.exe编译.resx文件的支持，必须使用“--resgen”指定。每个.resx文件的命名空间将通过检查相应的代码文件来确定。例如，myForm.cs对应于myForm.resx，Resources.Designer.cs对应于Resources.resx。但是在使用资源运行winform程序时可能仍会出现问题，如下面的已知问题所述。
 
 更新 23-02-26 (V1.1.0.0)：
 - 添加了 Exclu 机制
@@ -43,18 +79,22 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 
 ##  使用说明：
-		Usage: bflata [build|build-il] <csproj file> [options]
+		Usage: bflata [build|build-il] <root csproj file> [options]
 
-		[build|build-il]                              使用 %Path% 中的 BFlat 进行构建，忽略 -st 选项。
-							      如果省略，则仅生成构建脚本，但 -bm 选项仍然有效。
+		[build|build-il|flatten|flatten-all]          BUILD|BUILD-IL 意思是使用 %Path% 中的 BFlat 进行本地或 IL 编译。
+							      FLATTEN 表示从项目层次结构中提取代码文件，并将其放入“平铺的、类似 Go 的”路径层次结构中，
+						              同时将依赖引用写入 BFA 文件中。	
+					
+							      如果省略，只生成构建脚本，但 -bm 选项仍然有效。
 
-		<.csproj文件>                                 如果指定了 'build'，则必须是第二个参数，否则是第一个参数，仅允许一个项目。 
+		<root csproj file>                            如果指定了 'build' 参数，则必须是第二个参数；否则，必须是第一个参数。只允许有一个根项目。 
 
     选项：
 	-pr|--packageroot:<path to package storage>       例如：'C:\Users\%username%\.nuget\packages' 或 '$HOME/.nuget/packages'。
-
-	-rp|--refpath:<any path to be related>            生成构建脚本文件中文件路径的引用路径，
-                                                      可以进行优化以缩短路径长度。默认为 '.'（当前目录）。
+	
+	-h|--home:<MSBuildStartupDirectory>               通常是指向 Visual Studio 解决方案的路径，默认为当前目录。
+	                                                  注意：这个路径可能不同于根 csproj 文件的路径，但是为了整个解决方案能够正确编译，需要指定这个路径。
+													  
 
 	-fx|--framework:<moniker>                     	  与 BFlat 内置的 .net runtime 兼容的 TFM，
                                                       主要用于匹配依赖项，例如 'net7.0'
@@ -62,26 +102,35 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 	-bm|--buildmode:<flat|tree|treed>                 FLAT = 扁平化项目树以便构建；
                                                       TREE = 单独构建每个项目并相应地引用它们，使用 -r 选项；
                                                       TREED = '-bm:tree -dd'。
-    -st|--scripttype:<rsp|bat|sh>                     响应文件(.rsp,默认)或Windows批处理文件(.cmd/.bat)或Linux Shell脚本(.sh)文件。
+    
+	--resgen:<path to resgen.exe>                     指向资源生成器（例如 ResGen.exe）的路径。
 	
-    Obsolete Options:
-    -dd|--depdep                                      存储依赖项模式，与'-bm:tree'一起有效，
-                                                      存储子项目的依赖项并将其按层次线累积提供给父项目，
-                                                      以满足任何可能的引用要求。
+	-inc|--include:<path to BFA file>                 BFA 文件（.bfa）包含任何 BFlatA 的参数，每个参数由 -inc:<filename> 指定。                                            
+                                                      与RSP文件不同，BFA文件中的每一行可以包含多个启用了宏的参数（在底部列出）。
+					                  BFA可以用作特定项目的构建配置文件，有点类似于.csproj文件。
+						          如果有任何参数重复，则最后一个有效的参数将覆盖前面的参数，但不适用于<root csproj file>。
+													  
+ 
+    Shared Options with BFlat:                        
+	
+	--target:<Exe|Shared|WinExe>                      这是构建目标，默认为<BFlat default>。               
+	
+	--os <Windows|Linux|Uefi>                         这个指令的意思是构建目标，默认使用的是 Windows 平台。     
+	
+	--arch <x64|arm64|x86|...>                        这条信息表示构建的默认平台架构为x64。
+	
+	-o|--out:<File>                                   根项目的输出文件路径。
+	
+	--verbose                                         启用详细日志记录
 
-    -t|--target:<Exe|Shared|WinExe>                   构建目标，此参数也将传递给BFlat。
-
-    -o|--out:<File>                                   根项目的输出文件路径。
-
-    -xx|--exclufx:<dotnet Shared Framework path>      如果路径有效，则将从该路径中提取lib exclus。
-                                                      例如'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
-                                                      并且提取的exclus将保存到'<moniker>.exclu'以供进一步使用。
-                                                      其中moniker由-fx选项指定。
-						          如果未明确指定此路径，则BFlatA将自动搜索 -pr:<path> 和 -fx:<framework> 以查找 Exclus。
+    -xx|--exclufx:<dotnet Shared Framework path>      要提取的 lib exclus 的路径。
+	
+                                                      指定库排除文件（lib exclus）提取的路径，例如：'C：\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'。
+		                                          提取的排除文件将存储在“<moniker>.exclu”中，并可通过使用-fx选项指定的 moniker 进行进一步使用。如果未提供路径，
+						          则 BFlatA 会自动搜索使用 -fx:<framework> 选项指定的 moniker 的路径 -pr：<path>。
 													  
 
-     
-	--resgen:<path to resgen.exe>                     参数指定资源生成器（例如ResGen.exe）的路径，用于将.resx文件编译为二进制文件。exclus。
+  
 	
 	
 	Shared Options(will also be passed to BFlat):
@@ -98,28 +147,62 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
                      除了“-o”选项之外，任何其他的参数都将原样传递给BFlat。
 		         对于选项，可以使用空格代替“:”字符。例如，“-pr：<path>”=“-pr <path>”。
 		         请确保在`.csproj`文件中关闭了`<ImplicitUsings>`，并且所有命名空间都已正确导入。
-		         生成脚本的文件名为“build.rsp、build.cmd、build.sh”之一，`.rsp`文件允许更大的参数，是首选。
-		         一旦保存了“<moniker>.exclu”文件，您可以将其用于任何后续构建，并且“packages.exclu”始终加载，可用于存储额外的共享排除项，其中“exclu”是“Excluded Packages”的缩写。
+		         
+		         一旦保存了“<moniker>.exclu”文件，它可以用于任何后续的构建，并且始终加载“packages.exclu”，可以用于存储额外的共享排除项，其中“exclu”是“Excluded Packages”的缩写。
 	    示例：
-		         bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -st:bat -bm:treed  // 仅生成构建脚本，按项目树的顺序使用 Deposit Dependencies。
-		         bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages -st:bat --arch x64  // 该命令使用 FLAT 模式进行构建，并且默认的构建目标是 .NET 7.0。--arch x64 选项被传递给 BFlat 以指定构建的目标架构为 x64，而 -st:bat 选项则被忽略。
+		         bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -bm:treed
+				 
+				 
+				 bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages --arch x64 --ldflags /libpath:"C:\Progra~1\Micros~3\2022\Enterprise\VC\Tools\MSVC\14.35.32215\lib\x64" --ldflags "/fixed -base:0x10000000 --subsystem:native /entry:Entry /INCREMENTAL:NO"
+				 
+				 Macors defined:
+
+			         MSBuildProjectDirectory    = c:\ProjectPath
+				 MSBuildProjectExtension    = .csproj
+			         MSBuildProjectFile         = ProjectFile.csproj
+	                         MSBuildProjectFullPath     = c:\ProjectPath\ProjectFile.csproj
+	                         MSBuildProjectName         = ProjectFile
+	                         MSBuildRuntimeType         = <default>
+	                         MSBuildThisFile            = ProjectFile.csproj
+	                         MSBuildThisFileDirectory   = c:\ProjectPath\
+	                         MSBuildThisFileExtension   = .csproj
+	                         MSBuildThisFileFullPath    = c:\ProjectPath
+	                         MSBuildThisFileName        = ProjectFile
+	                         MSBuildStartupDirectory    = D:\Repos\bflata\bin\Debug\net7.0
+      
 		
 
 ## 从源代码编译：
  由于 Bflata 是一个非常小的程序，您可以使用以下任何编译器来构建它：
-- BFlat [github.com/bflattened/bflat](https://github.com/bflattened/bflat)
+- BFlat [github.com/bflattened/bflat](https://github.com/bflattened/bflat)(Download binary [here](https://flattened.net))
 - Dotnet C# 编译器
 - Mono C# 编译器
 
 当然，最好使用 BFlat 将程序完全构建为本机代码（完全没有 IL）:
 
+## BFA file
+- BFA文件（.bfa）包含BFlatA的任何有效参数，包括build和<root csproj file>，每个BFA文件可以由单个-inc：<filename>指定。因此，对于一个项目，您可以使用bflata -inc：myproject.bfa以使用在myproject.bfa文件中编写的所有参数构建项目。您还可以在共享的BFA文件中存储一些共享参数，例如那些较长的链接器参数（--ldflags：...），并在构建不同项目时引用它们，例如bflata build -inc：MyProject.bfa -inc：SharedArgSet1.bfa。
+
+- 与RSP文件不同，BFA文件中的每行都可以包含启用宏的多个参数，并且这些参数将由bflata解析并最终合并到输出的构建脚本中。
+
+- 因此，BFAs看起来并且可以像特定于项目的构建配置文件一样使用，甚至相当于.csproj文件，您可以灵活地使用它们。
+
+- 如果任何参数重复，则有效的后续出现将覆盖前面的出现，但是<root csproj file>参数除外，它必须出现在参数列表的第1或第2个位置。
+
+- 与RSP文件一样，在BFA文件中以“#”开头的行被认为是注释。
+
+- 您可以使用帮助选项查看支持的宏，它们大多与MSBuild兼容。
+
 ## 已知问题：
 
 - "--buildmode:tree" 选项按照引用层次结构构建，但是被引用的项目实际上使用 'bflat build-il' 选项构建，这会生成 IL 程序集而不是本机代码，只有根项目才会以本机代码构建。这是因为目前还不知道 BFlat 是否能够生成可通过 -r 选项引用的本机 .dll 库（如果它有一天能够这样做，或者已知能够做到，那么 TREE 模式实际上就可以用于本机代码）。注意：TREE 模式在处理 Nuget 包使用与父项目不兼容的依赖项的情况时非常有用（在 FLAT 模式下会导致错误），因为库是独立编译的。此外，使用 -dd（Deposit Dependency）选项的父项间接使用子项目依赖项的父项目也可能得到解决。
-- "--buildmode:flat" 选项（默认选项，如果未提供 -bm）生成扁平化的构建脚本，该脚本将所有引用的 .csproj 文件的所有代码文件、包引用和资源合并到一个文件中，但此解决方案无法解决来自不同项目的依赖项版本不兼容的问题，特别是 Nuget 包所需的次要依赖项。可以通过使所有项目引用相同版本的相同软件包来消除项目版本不一致，但是预编译软件包之间的次要依赖关系是各种各样的且不可更改的。
-- 尽管当前版本支持调用resgen.exe（通过--resgen选项指定）来编译.resx文件以生成可嵌入的二进制文件（.resources），并在构建时从临时目录引用它们，资源的命名空间将采用相应的代码文件，例如myForm.cs对应myForm.resx，Resources.Designer.cs对应Resources.resx，但仍然会出现以下错误消息。这可能是由于BFlat的内部设置，正如此处所述:https://github.com/bflattened/bflat/issues/92
+- "--buildmode:flat" 选项（如果未提供"-bm"选项）会生成一个扁平的构建脚本，将所有引用的.csproj文件的所有代码文件、包引用和资源合并到一个脚本中，但这种解决方案无法解决来自不同项目的依赖项版本不兼容的问题，特别是Nuget包所需的二级依赖关系。可以通过使所有项目引用相同版本的相同软件包来消除项目之间的版本不一致性，但预编译包之间的二级依赖关系各不相同且无法更改。
+- 尽管当前版本支持使用 --resgen 选项调用 resgen.exe 编译 .resx 文件为可嵌入二进制(.resources)，并在构建时从临时目录引用它们，资源的命名空间会采用相应的代码文件，例如 myForm.cs 用于 myForm.resx，Resources.Designer.cs 用于 Resources.resx，但仍然会出现以下类似的错误消息。这可能是由于 bflat 的内部设置引起的，可以在此处报告并找到解决方案：https://github.com/bflattened/bflat/issues/92
 
 ![image](https://user-images.githubusercontent.com/6511226/222661726-92f1afb7-ba9f-4e3b-8c7e-f25148119edc.png)
+
+现在，如果指定了--resgen参数，BFlatA将自动添加相关的--feature参数以消除此错误。
+
 
 ## 示例项目
 
@@ -136,7 +219,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
     BFlatA V1.1.0.0 @github.com/xiaoyuvax/bflata
     Description:
-      A wrapper/building script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
+      A wrapper/build script generator for BFlat, a native C# compiler, for recusively building .csproj file with:
         - Referenced projects
         - Nuget package dependencies
         - Embedded resources
@@ -173,7 +256,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
     Script written!
     
     Building in FLAT mode:ObjectPoolDemo...
-    - Executing building script: bflat build @build.rsp...
+    - Executing build script: bflat build @build.rsp...
     --END---------------------------------
     C:\Users\Xiaoyu\source\ObjectPoolDemo\WMLogService.Core\WimaLoggerBase.cs(358): Trim analysis warning IL2026: Wima.Log.WimaLoggerBase.<>c.<WriteInternal>b__130_0(StackFrame): Using member 'System.Diagnostics.StackFrame.GetMethod()' which has 'RequiresUnreferencedCodeAttribute' can break functionality when trimming application code. Metadata for the method might be incomplete or removed.
     C:\_oss\common-logging\src\Common.Logging.Portable\Logging\LogManager.cs(567): Trim analysis warning IL2072: Common.Logging.LogManager.<>c__DisplayClass35_0.<BuildLoggerFactoryAdapterFromLogSettings>b__0(): 'type' argument does not satisfy 'DynamicallyAccessedMemberTypes.PublicConstructors' in call to 'System.Activator.CreateInstance(Type,Object[])'. The return value of method 'Common.Logging.Configuration.LogSetting.FactoryAdapterType.get' does not have matching annotations. The source value must declare at least the same requirements as those declared on the target location it is assigned to.
