@@ -217,7 +217,7 @@ output:
     ScriptMode:RSP
     TargetFx:net7.0
     PackageRoot:C:\Users\xiaoyu\.nuget\packages
-    RefPath:C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\BFlatA\bin\Debug\net7.0
+    RefPath:C:\Users\Xiaoyu\source\repos\BFlatA\bin\Debug\net7.0
     Target:Exe
     
     --LIB EXCLU---------------------------
@@ -229,8 +229,8 @@ output:
     Libs loaded:1609
     
     --BUILDING----------------------------
-    Parsing Project:C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.csproj ...
-    Parsing Project:C:\Users\Xiaoyu\source\repos\LoraMonitor\branches\1.7-MemoryPack\ObjectPoolDemo\WMLogService.Core\Wima.Log.csproj ...
+    Parsing Project:C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\ObjectPoolDemo\ObjectPoolDemo.csproj ...
+    Parsing Project:C:\Users\Xiaoyu\source\repos\ObjectPoolDemo\WMLogService.Core\Wima.Log.csproj ...
     
     Generating script:ObjectPoolDemo
     - Found 9 code files(*.cs)
