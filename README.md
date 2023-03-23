@@ -71,12 +71,15 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 - A new `-dd` (Deposit Dependencies) option is introduced for compiling projects who uses references of child projects indirectly, and still offering certain extent of version consistency, where dependencies are added-up (deposited) along the hiearchy line and be accumulatively served to the parent project level by level (if any dependency version conflict upon merging with parent level, higher version will be retained, as to guarantee maximal version compatibility).
 
 
-##  Usage:
+	##  Usage:
 
 	  Usage: bflata [build|build-il] <root csproj file> [options]
 
-	  [build|build-il]                              Build with BFlat in %Path%, with -st option ignored.
-													If omitted, generate build script only, with -bm option still valid.
+	  [build|build-il|flatten|flatten-all]          BUILD|BUILD-IL = build with BFlat in %Path% in native or in IL.
+							FLATTEN = extract code files from project hierachy into a "flattened, Go-like" path hierachy,
+							FALTTEN-ALL = flatten + copy all dependencies and resources to dest path,
+							both with dependency references written to a BFA file.
+							If omitted, generate build script only, with -bm option still valid.
 
 	  <root csproj file>                            Must be the 2nd arg if 'build' specified, or the 1st otherwise, only 1 root project allowed.
 
@@ -85,24 +88,22 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 	  -pr|--packageroot:<path to package storage>   eg.'C:\Users\%username%\.nuget\packages' or '$HOME/.nuget/packages'.
 
 	  -h|--home:<MSBuildStartupDirectory>           Path to VS solution usually, default:current directory.
-													Caution: this path may not be the same as <root csproj file>,
-													and is needed for entire solution to compile correctly.
+							Caution: this path may not be the same as <root csproj file>,
+							and is needed for entire solution to compile correctly.
 
 	  -fx|--framework:<moniker>                     The TFM compatible with the built-in .net runtime of BFlat(see 'bflat --info')
-													mainly purposed for matching dependencies, e.g. 'net7.0'
+							mainly purposed for matching dependencies, e.g. 'net7.0'
 
 	  -bm|--buildmode:<flat|tree|treed>             FLAT = flatten project tree to one for building;
-													TREE = build each project alone and reference'em accordingly with -r option;
-													TREED = '-bm:tree -dd'.
+							TREE = build each project alone and reference'em accordingly with -r option;
+							TREED = '-bm:tree -dd'.
 
 	  --resgen:<path to resgen.exe>                 Path to Resource Generator(e.g. ResGen.exe).
 
-	  --linker:<path to linker>                     Path to linker other than that comes with BFlat(e.g. path to MSVC Llinker: link.exe).
-
 	  -inc|--include:<path to BFA file>             BFA files(.bfa) contain any args for BFlatA, each specified by -inc:<filename>.
-													Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).
-													BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.
-													If any arg duplicated, valid latters will overwrite, except for <root csproj file>.
+							Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).
+							BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.
+							If any arg duplicated, valid latters will overwrite, except for <root csproj file>.
 
 
 	Shared Options with BFlat:
@@ -119,14 +120,14 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 	Obsolete Options:
 
-	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree', equivalently '-bm:treed',
-													where dependencies of child projects are deposited and served to parent project,
-													as to fulfill any possible reference requirements
+	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree', equivalently '-bm:tred',
+							where dependencies of child projects are deposited and served to parent project,
+							as to fulfill any possible reference requirements
 
-	  -xx|--exclufx:<dotnet Shared Framework path>  Path where lib exclus will be extracted from.
-													e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
-													Extracted exclus stored in '<moniker>.exclu' for further use with moniker specified by -fx opt.
-													If path not given, BFlatA searches -pr:<path> with -fx:<framework>, automatically.
+	  -xx|--exclufx:<dotnet Framework path>         Path where lib exclus will be extracted from.
+							e.g. 'C:\Program Files\dotnet\shared\Microsoft.NETCore.App\7.0.2'
+							Extracted exclus stored in '<moniker>.exclu' for further use with moniker specified by -fx opt.
+							If path not given, BFlatA searches -pr:<path> with -fx:<framework>, automatically.
 
 
 	Note:
