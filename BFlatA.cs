@@ -43,20 +43,31 @@ namespace BFlatA
         public bool IsCaseSensitive;
         public bool IsFlag;
         public bool IsOption;
-        public string LongName;
-        public string ShortName;
-        public string Value;
+        public string[] LongName;
+        public string[] ShortName;
+        public List<string> Value;
+        public bool IsOther;
+        public bool IsOptional;
+        public bool IsFile;
+        public bool IsDirectory;
 
-        public ArgDefinition(bool isCaseSensitive, bool isFlag, bool isOption, string shortName, string longName, string description, string value, string group)
+        public ArgDefinition(string[] shortName = null, string[] longName = null, string description = null, bool isFlag = false,
+                             bool isOptional = true, bool isOption = false, bool isOther = false, bool isFile = false,
+                             bool isDirectory = false, bool isCaseSensitive = false, string group = null,
+                             string defaultValue = null)
         {
             IsCaseSensitive = isCaseSensitive;
             IsFlag = isFlag;
             IsOption = isOption;
+            IsOther = isOther;
             ShortName = shortName;
             LongName = longName;
             Description = description;
-            Value = value;
+            Value = new() { defaultValue };
             Group = group;
+            IsFile = isFile;
+            IsDirectory = isDirectory;
+            IsOptional = isOptional;
         }
     }
 
@@ -86,16 +97,13 @@ namespace BFlatA
         public static Verb Action = Verb.Script;
         public static string Architecture = "x64";
 
-        public static Dictionary<string, ArgDefinition> ArgBook = new()
-        {
-            { "Build",new ArgDefinition(false,true,false,null,"build","",null,"")}
-        };
-
         public static BuildMode BuildMode = BuildMode.None;
         public static List<string> CacheLib = new();
         public static List<string> CacheNuspec = new();
         public static bool DepositLib = false;
-        public static List<string> IncludedRSPFiles = new();
+        public static List<string> BFAList = new();
+        public static List<string> PreBuildActions = new();
+        public static List<string> PostBuildActions = new();
         public static string[] LibExclu = Array.Empty<string>();
         public static string Linker = null;
         public static string MSBuildStartupDirectory = Directory.GetCurrentDirectory();
@@ -221,7 +229,7 @@ namespace BFlatA
             .Where(i => !LibExclu.Any(x => i.Contains(PathSep + x + PathSep)));
 
         public static IEnumerable<string> ExtractAttributePathValues(this IEnumerable<XElement> x, string attributeName, string refPath, Dictionary<string, string> msBuildMacros)
-            => x.SelectMany(i => GetAbsPaths(ReplaceMsBuildMacros(i.Attribute(attributeName)?.Value, msBuildMacros), refPath));
+            => x.SelectMany(i => GetAbsPaths(ApplyMacros(i.Attribute(attributeName)?.Value, msBuildMacros), refPath));
 
         public static string[] ExtractExclu(string path)
         {
@@ -240,7 +248,7 @@ namespace BFlatA
         public static int FlattenProject(string projectName, string projectPath, Verb action,
                                          IEnumerable<string> codeBook, IEnumerable<string> libBook,
                                          IEnumerable<string> nativeLibBook, Dictionary<string, string> resBook,
-                                         string packageRoot, bool isDependency = false, string outputPath = null)
+                                         string outputPath = null)
         {
             codeBook = codeBook.Distinct();
             libBook = libBook.Distinct();
@@ -754,6 +762,16 @@ namespace BFlatA
             else return intArray;
         }
 
+        /// <summary>
+        /// TODO:Dicitonary storing argument definitions...
+        /// </summary>
+        public static Dictionary<string, ArgDefinition> ArgBook = new()
+        {
+            { "Verb",new ArgDefinition(null,new[]{"build" ,"build-il","flatten","flatten-all"},"",true,false,defaultValue:"")},
+            { "RootProject",new ArgDefinition(isOptional: false,isFile:true)},
+            { "PackageRoot", new ArgDefinition(new[]{"-pr"},new[]{"--packageroot" },"",isOption:true, isDirectory:true)},
+        };
+
         public static List<string> ParseArgs(IEnumerable<string> args, bool reArrange = true)
         {
             //Parse input args
@@ -767,7 +785,7 @@ namespace BFlatA
             }
             else
             {
-                // build must present at the first arg.
+                // Verbs must present at the first arg.
                 var verb = restArgs[0].ToLower();
                 if (AllowedVerbs.Contains(verb))
                 {
@@ -787,7 +805,6 @@ namespace BFlatA
                     ProjectFile = restArgs[0];
                     restArgs.RemoveAt(0);
                     //Init Root Macros
-                    RootMacros = GetMacros(ProjectFile);
                 }
 
                 //rearrange restArgs
@@ -795,31 +812,30 @@ namespace BFlatA
 
                 //process options:
                 //restArgs r changing through process, must be fixed to an array first.
+                //process environmental args first:
                 foreach (var a in restArgs.ToArray())
                 {
-                    if (a.StartsWith('#'))
-                    {
-                        restArgs.Remove(a);  //comment
-                    }
-                    else if (TryGetArg(a, "-pr", "--packageroot", restArgs, out string pr))
-                    {
-                        pr = pr.TrimQuotes();
-                        if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr).TrimPathEnd();  //the ending PathSep may cause shell script variable invalid like $PRcommon.log/ after replacement by placeholder @
-                        else Console.WriteLine($"Warning:PacakgeRoot does not exist or is invalid! {pr}");
-                    }
-                    else if (TryGetArg(a, "-h", "--home", restArgs, out string h))
+                    if (TryTakeArg(a, "-h", "--home", restArgs, out string h))
                     {
                         h = h.TrimQuotes();
                         if (Directory.Exists(h)) MSBuildStartupDirectory = Path.GetFullPath(h).TrimPathEnd();
                         else Console.WriteLine($"Warning:Home path does not exist or is invalid! {h}");
                     }
-                    else if (TryGetArg(a, "-xx", "--exclufx", restArgs, out string xx))
+                }
+
+                //Apply macros
+                if (!string.IsNullOrEmpty(ProjectFile)) RootMacros = GetMacros(ProjectFile);
+                if (RootMacros.Any()) restArgs = restArgs.Select(i => i.ApplyMacros(RootMacros)).ToList();
+
+                foreach (var a in restArgs.ToArray())
+                {
+                    if (TryTakeArg(a, "-pr", "--packageroot", restArgs, out string pr))
                     {
-                        xx = xx.TrimQuotes();
-                        if (Directory.Exists(xx)) RuntimePathExclu = Path.GetFullPath(xx).TrimPathEnd();
-                        else Console.WriteLine($"Warning:RuntimePath does not exist or is invalid! {xx}");
+                        pr = pr.TrimQuotes();
+                        if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr).TrimPathEnd();  //the ending PathSep may cause shell script variable invalid like $PRcommon.log/ after replacement by placeholder @
+                        else Console.WriteLine($"Warning:PacakgeRoot does not exist or is invalid! {pr}");
                     }
-                    else if (TryGetArg(a, "", "--resgen", restArgs, out string rg))
+                    else if (TryTakeArg(a, "", "--resgen", restArgs, out string rg))
                     {
                         rg = rg.TrimQuotes();
                         if (File.Exists(rg))
@@ -830,26 +846,34 @@ namespace BFlatA
                         }
                         else Console.WriteLine($"Warning:Resgen.exe does not exist or is invalid! {rg}");
                     }
-                    else if (TryGetArg(a, "", "--linker", restArgs, out string lnk))
+                    else if (TryTakeArg(a, "", "--linker", restArgs, out string lnk))
                     {
-                        lnk = lnk.TrimQuotes();
+                        lnk = lnk.TrimQuotes().TrimPathEnd();
                         if (File.Exists(lnk))
                         {
-                            Linker = Path.GetFullPath(lnk).TrimPathEnd();
+                            Linker = Path.GetFullPath(lnk);
                             restArgs.Add("-c"); //suppress BFlat Linker
                         }
                         else Console.WriteLine($"Warning:Linker does not exist or is invalid! {lnk}");
                     }
-                    else if (TryGetArg(a, "-inc", "--include", restArgs, out string inc) && File.Exists(inc))
+                    else if (TryTakeArg(a, "-inc", "--include", restArgs, out string inc) && File.Exists(inc))
                     {
                         bfaFiles.Add(inc);
                     }
-                    else if (TryGetArg(a, "", "--arch", restArgs, out string ax)) Architecture = ax.ToLower();
-                    else if (TryGetArg(a, "-bm", "--buildmode", restArgs, out string bm)) BuildMode = ParseBuildMode(bm);
-                    else if (TryGetArg(a, "", "--target", restArgs, out string t)) OutputType = t;
-                    else if (TryGetArg(a, "-fx", "--framework", restArgs, out string fx)) TargetFx = fx.ToLower();
-                    else if (TryGetArg(a, "", "--os", restArgs, out string os)) OS = os.ToLower();
-                    else if (TryGetArg(a, "-o", "--out", restArgs, out string o)) //hijack -o arg of BFlat, and it shall not be passed to denpendent project
+                    else if (TryTakeArg(a, "-pra", "--prebuild", restArgs, out string prb))
+                    {
+                        PreBuildActions.Add(prb);
+                    }
+                    else if (TryTakeArg(a, "-poa", "--postbuild", restArgs, out string pob))
+                    {
+                        PostBuildActions.Add(pob);
+                    }
+                    else if (TryTakeArg(a, "", "--arch", restArgs, out string ax)) Architecture = ax.ToLower();
+                    else if (TryTakeArg(a, "-bm", "--buildmode", restArgs, out string bm)) BuildMode = ParseBuildMode(bm);
+                    else if (TryTakeArg(a, "", "--target", restArgs, out string t)) OutputType = t;
+                    else if (TryTakeArg(a, "-fx", "--framework", restArgs, out string fx)) TargetFx = fx.ToLower();
+                    else if (TryTakeArg(a, "", "--os", restArgs, out string os)) OS = os.ToLower();
+                    else if (TryTakeArg(a, "-o", "--out", restArgs, out string o)) //hijack -o arg of BFlat, and it shall not be passed to dependent project
                     {
                         OutputFile = o;
                         restArgs.Remove(a);
@@ -857,6 +881,12 @@ namespace BFlatA
                     else if (a.ToLower() == "--verbose")
                     {
                         UseVerbose = true;
+                    }
+                    else if (TryTakeArg(a, "-xx", "--exclufx", restArgs, out string xx))
+                    {
+                        xx = xx.TrimQuotes();
+                        if (Directory.Exists(xx)) RuntimePathExclu = Path.GetFullPath(xx).TrimPathEnd();
+                        else Console.WriteLine($"Warning:RuntimePath does not exist or is invalid! {xx}");
                     }
                     else if (a.ToLower() == "-dd" || a.ToLower() == "--depdep")
                     {
@@ -871,12 +901,11 @@ namespace BFlatA
             {
                 var lines = ReadAllFileLines(bfaFiles)
                     .Where(i => !i.TrimStart().StartsWith(COMMENT_TAG))
-                    .SelectMany(i => i.ReplaceMsBuildMacros(RootMacros)
-                    .SplitArgsButQuotes(preserveQuote: true));
+                    .SelectMany(i => i.SplitArgsButQuotes(preserveQuote: true));
 
                 var rspRestArgs = ParseArgs(lines, false);
                 restArgs.AddRange(rspRestArgs.Except(restArgs));
-                IncludedRSPFiles = bfaFiles;
+                BFAList = bfaFiles;
             }
 
             //init arg values
@@ -1015,12 +1044,12 @@ namespace BFlatA
                         }
 
                         //Linker Args
-                        var linkerArg = ig.FirstOrDefault(i => i.Name.LocalName.ToLower() == "linkerarg")?.Value;
+                        var linkerArg = ig.FirstOrDefault(i => i.Name.LocalName.ToLower() == "linkerarg")?.Attribute("Include")?.Value;
                         var entrypointSymbol = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "entrypointsymbol")?.Value;
                         var linkerSubsystem = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "linkersubsystem")?.Value;
                         var incremental = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "incremental")?.Value;
                         var baseAddress = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "baseaddress")?.Value;
-                        if (!string.IsNullOrEmpty(linkerArg)) linkerArgs.AddRange(linkerArg.SplitArgsButQuotes());
+                        if (!string.IsNullOrEmpty(linkerArg)) linkerArgs.AddRange(linkerArg.SplitArgsButQuotesAsBarehead());
                         if (!string.IsNullOrEmpty(entrypointSymbol)) linkerArgs.Add((IsLinux ? "-entry:" : "/ENTRY:") + entrypointSymbol);
                         if (!string.IsNullOrEmpty(linkerSubsystem)) linkerArgs.Add((IsLinux ? "-subsystem:" : "/SUBSYSTEM:") + linkerSubsystem);
                         if (!string.IsNullOrEmpty(baseAddress)) linkerArgs.Add((IsLinux ? "-base:" : "/BASE:") + baseAddress);
@@ -1073,7 +1102,7 @@ namespace BFlatA
                                 .Concat(imports.ExtractAttributePathValues("Project", projectPath, msBuildMacros))
                                 .Where(i => !i.ToLower().EndsWith(".targets")))
                             {
-                                string refPath = p.ReplaceMsBuildMacros(msBuildMacros);
+                                string refPath = p.ApplyMacros(msBuildMacros);
 
                                 if (!string.IsNullOrEmpty(refPath) && File.Exists(refPath))
                                 {
@@ -1276,7 +1305,7 @@ namespace BFlatA
 
         public static string[] RemoveArg(string[] restParams, string a) => restParams.Except(new[] { a }).ToArray();
 
-        public static string ReplaceMsBuildMacros(this string path, Dictionary<string, string> msBuildMacros)
+        public static string ApplyMacros(this string path, Dictionary<string, string> msBuildMacros)
         {
             foreach (var m in msBuildMacros) path = path.Replace($"$({m.Key})", m.Value);
             return path;
@@ -1354,13 +1383,18 @@ namespace BFlatA
         /// <param name="argStr">dont have to be trimmed.</param>
         /// <returns></returns>
         public static IEnumerable<string> SplitArgs(this string argStr, char optCapChar = OPTION_CAP_CHAR, string optSeparator = OPTION_SEPARATOR, string optSeparatorEscaped = OPTION_SEPARATOR_ESCAPED)
-            => (((argStr = argStr.Trim()).StartsWith(optCapChar) ? ' ' : '\u0002') + argStr)   //tag the barehead arg
+            => (((argStr = argStr.Trim()).StartsWith(optCapChar) ? ' ' : '\u0001') + argStr)   //tag the barehead arg
             .Split(optSeparator, StringSplitOptions.RemoveEmptyEntries)
             .Select(i =>
             {
-                i = i.Trim().Replace(optSeparatorEscaped, optSeparator);  //restore the escpaed
-                return i.StartsWith('\u0002') ? i.TrimStart('\u0002') : optCapChar + i; //restore the barehead args & capped options
+                i = i.Trim().Replace(optSeparatorEscaped, optSeparator);  //restore the escaped
+                var r = i.StartsWith('\u0001') ? i.TrimStart('\u0001') : optCapChar + i; //restore the barehead args & capped options
+                r = r.Replace("\0", ""); //remove zero char
+                return r;
             });
+
+
+        public static IEnumerable<string> SplitArgsButQuotesAsBarehead(this string argStr) => argStr.SplitArgsButQuotes('\'', '\0', " ", "\u0002", true).Select(i => i.Replace('\'', '"'));
 
         /// <summary>
         /// Split args and leave whatever in quotes untouched
@@ -1385,7 +1419,7 @@ namespace BFlatA
                 var splitted = argStr.Split(quoteChar, StringSplitOptions.None);
                 for (int j = 0; j < splitted.Length; j++) if ((j + 1) % 2 == 0)
                         splitted[j] = splitted[j].Replace(optSeparator, optSeparatorEscaped); //even pos: in quotes, escaping the OPTION_SEPARATOR e.g." -"
-                //rejoin
+                                                                                              //rejoin
                 argStr = string.Join(preserveQuote ? quoteChar : '\0', splitted);
             }
 
@@ -1408,9 +1442,9 @@ namespace BFlatA
 
         public static string TrimPathEnd(this string str) => str.TrimEnd(new[] { '/', '\\' });
 
-        public static string TrimQuotes(this string str, char quote = '"') => str.Trim().TrimStart(quote).TrimEnd(quote);
+        public static string TrimQuotes(this string str, char quote = '"') => str.Trim().Trim(quote);
 
-        public static bool TryGetArg(string a, string shortName, string longName, List<string> restArgs, out string value)
+        public static bool TryTakeArg(string a, string shortName, string longName, List<string> restArgs, out string value)
         {
             value = null;
             var loa = a.ToLower();
@@ -1466,7 +1500,7 @@ namespace BFlatA
                 using var st = File.Create(scriptFileName);
                 st.Write(buf);
                 st.Flush();
-                Console.WriteLine($"Build script's written!{NL}");
+                Console.WriteLine($"Script:{scriptFileName} written!{NL}");
             }
             catch (Exception e) { Console.WriteLine(e.Message); }
             return;
@@ -1501,7 +1535,7 @@ namespace BFlatA
             Console.WriteLine("TargetFx".PadRight(COL_WIDTH_FOR_ARGS) + $":{TargetFx}");
             Console.WriteLine("PackageRoot".PadRight(COL_WIDTH_FOR_ARGS) + $":{PackageRoot ?? "<N/A>"}");
             Console.WriteLine("Home".PadRight(COL_WIDTH_FOR_ARGS) + $":{MSBuildStartupDirectory}");
-            if (IncludedRSPFiles.Count > 0) Console.WriteLine("BFA Includes".PadRight(COL_WIDTH_FOR_ARGS) + $":{IncludedRSPFiles.Count}");
+            if (BFAList.Count > 0) Console.WriteLine("BFA Includes".PadRight(COL_WIDTH_FOR_ARGS) + $":{BFAList.Count}");
             Console.WriteLine("Args for BFlat".PadRight(COL_WIDTH_FOR_ARGS) + $":{string.Join(' ', restArgs)}");
             Console.WriteLine();
 
@@ -1549,7 +1583,7 @@ namespace BFlatA
                     if (UseFlatten)
                     {
                         Console.WriteLine($"{NL}--FLATTENING--------------------------");
-                        FlattenProject(projectName, ProjectPath, Action, codeBook, libBook, nativeLibBook, resBook, PackageRoot, false, OutputFile);
+                        FlattenProject(projectName, ProjectPath, Action, codeBook, libBook, nativeLibBook, resBook, OutputFile);
                     }
                     else
                     {
@@ -1569,15 +1603,22 @@ namespace BFlatA
 
                         if (!string.IsNullOrEmpty(script))
                         {
-                            //Write to script file
+                            //Write build scripts
                             WriteScript(script);
+                            if (linkerArgs.Any()) WriteScript($"{projectName}.obj{NL}" + string.Join(NL, linkerArgs), "link.rsp");
 
                             if (UseBuild && BuildMode == BuildMode.Flat)
                             {
+                                Process buildProc = null;
+                                if (PreBuildActions.Any())
+                                {
+                                    Console.WriteLine($"{NL}--PREBUILD-ACTIONS-------------------");
+                                    buildProc = ExecuteCmd("Prebuild actions", PreBuildActions);
+                                }
                                 if (UseBuild) Console.WriteLine($"{NL}--BUILDING----------------------------");
                                 //Start Building
                                 Console.WriteLine($"Building in FLAT mode:{projectName}...");
-                                var buildProc = Build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
+                                buildProc = Build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
                                 if (buildProc != null)
                                 {
                                     buildProc.WaitForExit();
@@ -1587,6 +1628,12 @@ namespace BFlatA
                                         buildProc = Process.Start(Linker, "@link.rsp");
                                         buildProc?.WaitForExit();
                                         Console.WriteLine($"Linker exit code:{buildProc.ExitCode}");
+                                    }
+
+                                    if (PostBuildActions.Any())
+                                    {
+                                        Console.WriteLine($"{NL}--POSTBUILD-ACTIONS------------------");
+                                        buildProc = ExecuteCmd("Postbuild actions", PostBuildActions);
                                     }
                                 }
                                 else Console.WriteLine($"Error occurred during buidling project!!");
@@ -1599,6 +1646,7 @@ namespace BFlatA
                     Console.WriteLine($"Error occurred during parsing project file(s)!!({err})");
                     return err;
                 }
+
                 Console.WriteLine($"--END---------------------------------");
             }
             else
@@ -1609,6 +1657,30 @@ namespace BFlatA
             }
 
             return 0;
+        }
+
+        private static Process ExecuteCmd(string title, List<string> cmd)
+        {
+            Process buildProc = null;
+            foreach (var a in cmd)
+            {
+                var splitted = a.TrimQuotes().SplitArgsButQuotesAsBarehead().ToArray();
+                if (splitted.Length > 1)
+                {
+                    try
+                    {
+                        buildProc = Process.Start(splitted[0], string.Join(' ', splitted[1..]));
+                        buildProc.WaitForExit();
+                    }
+                    catch (Exception ex) { Console.WriteLine($"{ex.Message}"); }
+
+                    if (buildProc == null) Console.WriteLine($"Error occurred during executing {title}!!");
+                    else Console.WriteLine($"{title} exit code:{buildProc.ExitCode} - [{a}]");
+                }
+                else Console.WriteLine($"{title} invalid:{a}!");
+            }
+
+            return buildProc;
         }
     }
 }
