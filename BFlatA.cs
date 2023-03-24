@@ -1393,7 +1393,6 @@ namespace BFlatA
                 return r;
             });
 
-
         public static IEnumerable<string> SplitArgsButQuotesAsBarehead(this string argStr) => argStr.SplitArgsButQuotes('\'', '\0', " ", "\u0002", true).Select(i => i.Replace('\'', '"'));
 
         /// <summary>
@@ -1605,7 +1604,6 @@ namespace BFlatA
                         {
                             //Write build scripts
                             WriteScript(script);
-                            if (linkerArgs.Any()) WriteScript($"{projectName}.obj{NL}" + string.Join(NL, linkerArgs), "link.rsp");
 
                             if (UseBuild && BuildMode == BuildMode.Flat)
                             {
@@ -1623,18 +1621,27 @@ namespace BFlatA
                                 {
                                     buildProc.WaitForExit();
                                     Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
-                                    if (buildProc.ExitCode == 0 && UseLinker && File.Exists("link.rsp"))  //invoke linker
+
+                                    if (buildProc.ExitCode == 0 && UseLinker)  //invoke linker
                                     {
-                                        buildProc = Process.Start(Linker, "@link.rsp");
-                                        buildProc?.WaitForExit();
-                                        Console.WriteLine($"Linker exit code:{buildProc.ExitCode}");
+                                        var objFileName = projectName + ".obj";
+                                        if (File.Exists(objFileName))
+                                        {
+                                            WriteScript($"{objFileName}{NL}" + string.Join(NL, linkerArgs), "link.rsp");
+                                            buildProc = Process.Start(Linker, "@link.rsp");
+                                            buildProc?.WaitForExit();
+                                            Console.WriteLine($"Linker exit code:{buildProc.ExitCode}");
+
+                                            if (buildProc.ExitCode == 0 && PostBuildActions.Any())
+                                            {
+                                                Console.WriteLine($"{NL}--POSTBUILD-ACTIONS------------------");
+                                                buildProc = ExecuteCmd("Postbuild actions", PostBuildActions);
+                                            }
+                                        }
+                                        Console.WriteLine($"Object file not exists:{objFileName}");
                                     }
 
-                                    if (PostBuildActions.Any())
-                                    {
-                                        Console.WriteLine($"{NL}--POSTBUILD-ACTIONS------------------");
-                                        buildProc = ExecuteCmd("Postbuild actions", PostBuildActions);
-                                    }
+
                                 }
                                 else Console.WriteLine($"Error occurred during buidling project!!");
                             }
