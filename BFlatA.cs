@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.4.2.0")]
+[assembly: AssemblyVersion("1.4.2.1")]
 
 namespace BFlatA
 {
@@ -1027,21 +1027,22 @@ namespace BFlatA
                         var ilcSystemModule = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "ilcsystemmodule")?.Value ?? "";
                         var optimize = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "optimize")?.Value ?? "";
                         if (nostdlib?.ToLower() == "true" || noStandardLibraries?.ToLower() == "true" || ilcSystemModule != null) restArgs.Add("--stdlib:None");
-                        switch (ilcOptimizationPreference?.ToLower())
-                        {
-                            case "speed":
-                                restArgs.Add("-Ot");
-                                break;
+                        if (!restArgs.Any("-Ot-Os-O0".Contains))
+                            switch (ilcOptimizationPreference?.ToLower())
+                            {
+                                case "speed":
+                                    restArgs.Add("-Ot");
+                                    break;
 
-                            case "size":
-                                restArgs.Add("-Os");
-                                break;
+                                case "size":
+                                    restArgs.Add("-Os");
+                                    break;
 
-                            default:
-                                if (optimize?.ToLower() == "true") goto case "speed";
-                                restArgs.Add("-O0");
-                                break;
-                        }
+                                default:
+                                    if (optimize?.ToLower() == "true") goto case "speed";
+                                    restArgs.Add("-O0");
+                                    break;
+                            }
 
                         //Linker Args
                         var linkerArg = ig.FirstOrDefault(i => i.Name.LocalName.ToLower() == "linkerarg")?.Attribute("Include")?.Value;
@@ -1161,7 +1162,7 @@ namespace BFlatA
                                 Dictionary<string, string> myFlatResBook = FlattenResX(resBook, projectName);
 
                                 RouteLinkerArgs(restArgs, linkerArgs, nativeLibBook, false);
-                                restArgs.AddRange(defineConstants.Select(i => "-d:" + i));
+                                restArgs.AddRange(defineConstants.Select(i => "-d " + i));
 
                                 if (UseBuild)
                                 {
@@ -1313,15 +1314,28 @@ namespace BFlatA
 
         public static void RouteLinkerArgs(in List<string> restArgs, in List<string> linkerArgs, in List<string> nativeLibs, bool useLinker)
         {
+            //split ldFlags to minimal
+            List<string> ldFlagArgs = new();
+            foreach (var ldFlag in restArgs.Where(i => i.ToLower().StartsWith("--ldflags")).ToArray())
+            {
+                ldFlagArgs.Add(ldFlag.Replace("--ldflags ", "").Replace("--ldflags:", "").TrimQuotes().Replace('\'', '"'));
+                restArgs.Remove(ldFlag);
+            }
+
+            ldFlagArgs = ldFlagArgs.SelectMany(i => i.SplitArgsButQuotes()) //split "-" capped args
+                .SelectMany(i => i.SplitArgsButQuotesWindows())  //split "/" capped args
+                .ToList();
+
             if (useLinker)
             {
-                List<string> ldFlagArgs = new();
-                foreach (var ldFlags in restArgs.Where(i => i.ToLower().StartsWith("--ldflags")))
-                    ldFlagArgs.Add(ldFlags.Replace("--ldflags ", "").Replace("--ldflags:", "").TrimQuotes());
-                linkerArgs.AddRange(ldFlagArgs.SelectMany(i => i.SplitArgsButQuotes()).SelectMany(i => i.SplitArgsButQuotes('"', '/', optSeparator: " /", optSeparatorEscaped: "~/")));
+                linkerArgs.AddRange(ldFlagArgs);
                 linkerArgs.AddRange(nativeLibs);
             }
-            else restArgs.Add("--ldflags \"" + string.Join(" ", linkerArgs) + "\"");
+            else
+            {
+                restArgs.AddRange(ldFlagArgs.Select(i => "--ldflags " + i));
+                restArgs.AddRange(linkerArgs.Select(i => "--ldflags " + i));
+            }
             return;
         }
 
@@ -1395,6 +1409,8 @@ namespace BFlatA
 
         public static IEnumerable<string> SplitArgsButQuotesAsBarehead(this string argStr) => argStr.SplitArgsButQuotes('\'', '\0', " ", "\u0002", true).Select(i => i.Replace('\'', '"'));
 
+        public static IEnumerable<string> SplitArgsButQuotesWindows(this string argStr) => argStr.SplitArgsButQuotes('"', '/', optSeparator: " /", optSeparatorEscaped: "~/");
+
         /// <summary>
         /// Split args and leave whatever in quotes untouched
         /// </summary>
@@ -1441,7 +1457,12 @@ namespace BFlatA
 
         public static string TrimPathEnd(this string str) => str.TrimEnd(new[] { '/', '\\' });
 
-        public static string TrimQuotes(this string str, char quote = '"') => str.Trim().Trim(quote);
+        public static string TrimQuotes(this string str, char quote = '"')
+        {
+            str = str.Trim();
+            if (str.StartsWith(quote) && str.EndsWith(quote)) return str.Trim(quote);
+            else return str;
+        }
 
         public static bool TryTakeArg(string a, string shortName, string longName, List<string> restArgs, out string value)
         {
@@ -1489,9 +1510,9 @@ namespace BFlatA
             catch (Exception e) { Console.WriteLine(e.Message); }
         }
 
-        public static void WriteScript(string script, string scriptFileName = BUIDFILE_NAME)
+        public static int WriteScript(string script, string scriptFileName = BUIDFILE_NAME)
         {
-            if (string.IsNullOrEmpty(script)) return;
+            if (string.IsNullOrEmpty(script)) return -1;
 
             try
             {
@@ -1501,8 +1522,12 @@ namespace BFlatA
                 st.Flush();
                 Console.WriteLine($"Script:{scriptFileName} written!{NL}");
             }
-            catch (Exception e) { Console.WriteLine(e.Message); }
-            return;
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return -1;
+            }
+            return 0;
         }
 
         private static int Main(string[] args)
@@ -1595,7 +1620,7 @@ namespace BFlatA
                             Dictionary<string, string> myFlatResBook = FlattenResX(resBook, projectName);
 
                             RouteLinkerArgs(restArgs, linkerArgs, nativeLibBook, UseLinker);
-                            restArgs.AddRange(defineConstants.Select(i => "-d:" + i));
+                            restArgs.AddRange(defineConstants.Select(i => "-d " + i));
 
                             script = GenerateScript(projectName, restArgs, codeBook, libBook, nativeLibBook, myFlatResBook, BuildMode.Tree, PackageRoot, OutputType, false, OutputFile);
                         }
@@ -1603,51 +1628,63 @@ namespace BFlatA
                         if (!string.IsNullOrEmpty(script))
                         {
                             //Write build scripts
-                            WriteScript(script);
-
-                            if (UseBuild && BuildMode == BuildMode.Flat)
+                            if (WriteScript(script) == 0)
                             {
-                                Process buildProc = null;
-                                int actionExitCode = 0;
-                                if (PreBuildActions.Any())
+                                if (UseBuild && BuildMode == BuildMode.Flat)
                                 {
-                                    Console.WriteLine($"{NL}--PREBUILD-ACTIONS-------------------");
-                                    actionExitCode = ExecuteCmds("Prebuild actions", PreBuildActions);
-                                }
-                                if (actionExitCode == 0)
-                                {
-                                    Console.WriteLine($"{NL}--BUILDING----------------------------");
-                                    //Start Building
-                                    Console.WriteLine($"Building in FLAT mode:{projectName}...");
-                                    buildProc = Build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
-                                    if (buildProc != null)
+                                    Process buildProc = null;
+                                    int actionExitCode = 0;
+
+                                    if (PreBuildActions.Any())
                                     {
-                                        buildProc.WaitForExit();
-                                        Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
-
-                                        if (buildProc.ExitCode == 0 && UseLinker)  //invoke linker
-                                        {
-                                            var objFileName = projectName + ".obj";
-                                            if (File.Exists(objFileName))
-                                            {
-                                                WriteScript($"{objFileName}{NL}" + string.Join(NL, linkerArgs), "link.rsp");
-                                                buildProc = Process.Start(Linker, "@link.rsp");
-                                                buildProc?.WaitForExit();
-                                                Console.WriteLine($"Linker exit code:{buildProc.ExitCode}");
-
-                                                if (buildProc.ExitCode == 0 && PostBuildActions.Any())
-                                                {
-                                                    Console.WriteLine($"{NL}--POSTBUILD-ACTIONS------------------");
-                                                    actionExitCode = ExecuteCmds("Postbuild actions", PostBuildActions);
-                                                }
-                                            }
-                                            Console.WriteLine($"Object file not exists:{objFileName}");
-                                        }
+                                        Console.WriteLine($"{NL}--PREBUILD-ACTIONS-------------------");
+                                        actionExitCode = ExecuteCmds("Prebuild actions", PreBuildActions);
                                     }
-                                    else Console.WriteLine($"Error occurred during buidling project!!");
+
+                                    if (actionExitCode == 0)
+                                    {
+                                        Console.WriteLine($"{NL}--BUILDING----------------------------");
+                                        //Start Building
+                                        Console.WriteLine($"Building in FLAT mode:{projectName}...");
+                                        buildProc = Build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
+                                        if (buildProc != null)
+                                        {
+                                            buildProc.WaitForExit();
+                                            Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
+
+                                            if (buildProc.ExitCode == 0 && UseLinker)  //invoke linker
+                                            {
+                                                var objFileName = projectName + ".obj";
+                                                if (File.Exists(objFileName))
+                                                {
+                                                    if (WriteScript($"{objFileName}{NL}" + string.Join(NL, linkerArgs), "link.rsp") == 0)
+                                                    {
+                                                        buildProc = Process.Start(Linker, "@link.rsp");
+                                                        buildProc?.WaitForExit();
+                                                        Console.WriteLine($"Linker exit code:{buildProc.ExitCode}");
+
+                                                        if (buildProc.ExitCode == 0 && PostBuildActions.Any())
+                                                        {
+                                                            Console.WriteLine($"{NL}--POSTBUILD-ACTIONS------------------");
+                                                            actionExitCode = ExecuteCmds("Postbuild actions", PostBuildActions);
+                                                            if (actionExitCode != 0) Console.WriteLine($"Postbuild failure!!"); return -0xA;
+                                                        }
+                                                        else Console.WriteLine($"Linker failure!!"); return -0x9;
+                                                    }
+                                                    else Console.WriteLine($"Error writing link.rsp!!"); return -0x8;
+                                                }
+                                                else Console.WriteLine($"Object file not exists:{objFileName}"); return -0x7;
+                                            }
+                                            else Console.WriteLine($"Compiler failure!!"); return -0x6;
+                                        }
+                                        else Console.WriteLine($"Error occurred during buidling project!!"); return -0x5;
+                                    }
+                                    else Console.WriteLine($"Pre-build failure!!"); return -0x4;
                                 }
                             }
+                            else Console.WriteLine($"Error writing buid.rsp!!"); return -0x3;
                         }
+                        else Console.WriteLine($"No script generated!!"); return -0x2;
                     }
                 }
                 else
