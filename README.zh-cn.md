@@ -214,8 +214,8 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 ## 示例项目
 
-- [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/bflata/blob/main/README.md#ObjectPoolReuseCaseDemo) - 一个简单的带有多层依赖的示例项目.
-- [MOOS](https://github.com/xiaoyuvax/bflata/blob/main/README.md#moos) - 一个几乎由C#写成的原生操作系统。
+- [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/bflata/blob/main/README.zh-cn.md#ObjectPoolReuseCaseDemo) - 一个简单的带有多层依赖的示例项目.
+- [MOOS](https://github.com/xiaoyuvax/bflata/blob/main/README.zh-cn.md#moos) - 一个几乎由C#写成的原生操作系统。
 - [欢迎推荐可以通过BFlatA构建的项目...[给我写信](mailto:xiaoyu.vax@qq.com) ]
 
 ### [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
