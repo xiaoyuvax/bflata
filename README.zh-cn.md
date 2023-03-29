@@ -9,7 +9,7 @@ BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用
 - 引用的项目（不管引用关系有多复杂）
 - Nuget 包依赖项（包括包的依赖）
 - 嵌入式资源
-- 本地库依赖项
+- 原生库依赖项
 - .......
 
 一些直观的用法示例：
@@ -24,16 +24,21 @@ BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用
 
 	bflata flatten-all myproject.csproj
 
-将生成一个名为myproject_flat的文件夹，其中包含myproject的所有代码文件、库和资源，甚至包括所有子项目所引用的内容，作为完整的项目包。您可以直接使用bflat构建此项目，如'go build'。
+将生成一个名为myproject_flat的文件夹，其中包含myproject的所有代码文件、库和资源，甚至包括所有子项目所引用的内容，作为完整的项目包。您可以直接使用bflat构建此项目，类似'go build'。
 
 您可以在 [flattened.net](https://flattened.net) 下载原生 C# 编译器 BFlat。
 
-bflat与BFlatA的这个问题相关：https://github.com/bflattened/bflat/issues/61
+BFlatA源于BFlat的这个问题：https://github.com/bflattened/bflat/issues/61
 
-更新时间：23-03-22 (版本号：V1.4.2.0)
+
+更新：23-03-22 (版本号：V1.4.2.0)
+- 支持编译前和编译后动作执行外部命令。
+- 此版本确保BFlatA+BFlat工具链能够支持编译像MOOS这样的项目，详情见[示例项目](https://github.com/xiaoyuvax/bflata/blob/main/README.zh-cn.md#moos)。
+
+更新：23-03-22 (版本号：V1.4.2.0)
 - 允许指定一个外部链接器，而不是与bflat一起提供的链接器，例如MSVC链接器(link.exe)。
 
-更新时间：23-03-19 (版本号：V1.4.1.0)
+更新：23-03-19 (版本号：V1.4.1.0)
 - 引入BFA文件（字面意思为BFlatA参数文件），而不是RSP文件，可以使用-inc:<BFA文件>选项将多个参数文件合并以生成构建脚本，它支持宏，并且不必将参数存储为“每行一个参数”。如果组织得当，可以像项目文件一样处理BFA文件，以便更方便地在不同的项目之间切换。
 
 - 引入新的“flatten | flatten-all”动词，允许将代码文件及其依赖项/资源提取到指定的目标位置，其中项目文件按打平的、类似GO的路径层次结构组织，可以直接由BFlat构建（类似于“go build”），“flatten-all”还复制所有依赖库，以便您将路径结构和所有依赖项一起打包。
@@ -42,12 +47,12 @@ bflat与BFlatA的这个问题相关：https://github.com/bflattened/bflat/issues
 
 - 改进了对csproj文件中更为常见的属性的处理，例如'NoStdLib'、'BaseAddress'、'linkerSubsystem'、'EntrypointSymbol'等。
 
-更新时间：23-03-16 (版本号：V1.3.0.0)
+更新：23-03-16 (版本号：V1.3.0.0)
 - 移除了对Windows批处理或Linux Shell脚本的支持（如果有RSP文件，则没有意义），现在BFlatA仅生成RSP脚本。
 
 - 允许使用-inc:<rsp文件>选项指定一个或多个要包含的RSP文件，以防需要包含某些固定构建选项的特定组，并在某些项目中使用。通常可以将链接器参数、主路径放入一个rsp文件中，并将其与指定的csproj一起包含。
 
-更新时间：23-03-15 (版本号：V1.2.1.1)
+更新：23-03-15 (版本号：V1.2.1.1)
 - 添加对NativeLibrary的支持。
 
 更新 23-03-03 (V1.2.0.0)：
@@ -109,6 +114,9 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
                                                       与RSP文件不同，BFA文件中的每一行可以包含多个启用了宏的参数（在底部列出）。
 					                  BFA可以用作特定项目的构建配置文件，有点类似于.csproj文件。
 						          如果有任何参数重复，则最后一个有效的参数将覆盖前面的参数，但不适用于<root csproj file>。
+	-pra|--prebuild:<cmd or path to executable>       在编译前执行的一行命令行。可以有多个。
+	
+	-poa|--postbuild:<cmd or path to executable>  	  在编译后执行的一行命令行。可以有多个。
 													  
  
     Shared Options with BFlat:                        
@@ -206,7 +214,8 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 ## 示例项目
 
-[ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 是一个简单的 C# 项目，其中包含一个项目引用和一个 Nuget 包引用，以及几个次要依赖项，是展示 BFlata 如何与 BFlat 协同工作的典型场景。
+### [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
+是一个简单的 C# 项目，其中包含一个项目引用和一个 Nuget 包引用，以及几个次要依赖项，是展示 BFlata 如何与 BFlat 协同工作的典型场景。
 
 > 注意：在 .csproj 文件中禁用 <ImplicitUsings> 非常重要，
 > 并确保导入了所有必要的命名空间，
@@ -295,3 +304,10 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 
 否则，您可以生成不带“build”关键字的 Windows Batch 或 Linux Shell Script，并通过 `-st` 选项选择 ScriptType，通过 `-bm` 选项选择 BuildMode。
+
+### [MOOS](https://github.com/xiaoyuvax/MOOS)
+是一个几乎用C#写成的原生系统，你可以完全用BFlat + BFlatA来编译它， 虽然它原来是在VS中编排的，且需要MSBuild + ILcompiler来编译。 
+编译方法详情见: [如何用BFlat编译MOOS](https://github.com/xiaoyuvax/MOOS/blob/master/MOOS.bflat.md#building-steps)
+用BFlatA + BFlat工具链来编译MOOS相对来说是一个更复杂的情况，因为如上述连接中所述BFlat自带的链接器不能用需要换用MSVC链接器。但这个示例演示了BFlatA如何灵活地处理一些不常见的情况.
+![image](https://user-images.githubusercontent.com/6511226/228498298-89ed4f3c-2aa2-4a4d-84ad-13599483575b.png)
+

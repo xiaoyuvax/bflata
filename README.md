@@ -29,6 +29,10 @@ would produce a `myproject_flat` folder, into which all code files, libs, resour
 ## Update Logs   
 
 
+Update 23-03-29 (V1.4.2.2)
+- Support Prebuild Actions & Postbuild Actions.
+- This version supports build project like MOOS, check out the [Demo Projects](https://github.com/xiaoyuvax/bflata/blob/main/README.md#moos)
+
 Update 23-03-22 (V1.4.2.0)
 - Allow specifying an external linker instead of that comes with bflat, such as MSVC linker(link.exe).
 Update 23-03-19 (V1.4.1.0)
@@ -101,9 +105,14 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 	  --resgen:<path to resgen.exe>                 Path to Resource Generator(e.g. ResGen.exe).
 
 	  -inc|--include:<path to BFA file>             BFA files(.bfa) contain any args for BFlatA, each specified by -inc:<filename>.
+
 							Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).
 							BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.
 							If any arg duplicated, valid latters will overwrite, except for <root csproj file>.
+
+	  -pra|--prebuild:<cmd or path to executable>   One command line to be executed before build.Can be multiple.
+
+	  -poa|--postbuild:<cmd or path to executable>  One command line to be executed after build.Can be multiple.
 
 
 	Shared Options with BFlat:
@@ -120,7 +129,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 	Obsolete Options:
 
-	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree', equivalently '-bm:tred',
+	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree', equivalently '-bm:treed',
 							where dependencies of child projects are deposited and served to parent project,
 							as to fulfill any possible reference requirements
 
@@ -188,7 +197,8 @@ Now BFlatA would automatically add relevant `--feature` args if `--resgen` arg i
 
 ## Demo project
 
-[ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) is a simple C# project with one Project Reference and one Nuget Package reference together with several secondary dependencies, and is a typical scenario for demonstrating how BFlata works with BFlat.
+### [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
+is a simple C# project with one Project Reference and one Nuget Package reference together with several secondary dependencies, and is a typical scenario for demonstrating how BFlata works with BFlat.
 
 > Note:It is important to disable `<ImplicitUsings>` in .csproj file,
 > and make sure all necessary namespaces are imported, especially `using
@@ -275,3 +285,10 @@ and following is the content of the build script (Response File) generated above
     -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.primitives\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll
     -r C:\Users\xiaoyu\.nuget\packages\nest\7.17.5\lib\netstandard2.0\Nest.dll
 
+		  
+
+### [MOOS](https://github.com/xiaoyuvax/MOOS)
+is a native OS almost totally written in C#, and you can build it completely with BFlat + BFlatA, despite it was originally orchestrated in VS and require MSBuild + ILcompiler to build. 
+Check out: [How to build MOOS with BFlatA](https://github.com/xiaoyuvax/MOOS/blob/master/MOOS.bflat.md#building-steps)
+MOOS is a relatively more complicated case to build through BFlatA + BFlat toolchian, in which the linker comes with BFlat is replaced with MSVC linker in above link, and it demonstrates how BFlatA can cope with some unusual condition felixbly.
+![image](https://user-images.githubusercontent.com/6511226/228498471-0baf5415-b000-45f8-9c20-b35b3f634089.png)
