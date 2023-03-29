@@ -33,6 +33,7 @@ BFlatA源于BFlat的这个问题：https://github.com/bflattened/bflat/issues/61
 
 更新：23-03-22 (版本号：V1.4.2.0)
 - 支持编译前和编译后动作执行外部命令。
+- 确定BFlatA+BFlat工具链能够支持编译像MOOS这样的项目，详情见[示例项目]()。
 
 更新：23-03-22 (版本号：V1.4.2.0)
 - 允许指定一个外部链接器，而不是与bflat一起提供的链接器，例如MSVC链接器(link.exe)。
@@ -213,7 +214,8 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 ## 示例项目
 
-[ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 是一个简单的 C# 项目，其中包含一个项目引用和一个 Nuget 包引用，以及几个次要依赖项，是展示 BFlata 如何与 BFlat 协同工作的典型场景。
+### [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
+是一个简单的 C# 项目，其中包含一个项目引用和一个 Nuget 包引用，以及几个次要依赖项，是展示 BFlata 如何与 BFlat 协同工作的典型场景。
 
 > 注意：在 .csproj 文件中禁用 <ImplicitUsings> 非常重要，
 > 并确保导入了所有必要的命名空间，
@@ -302,3 +304,8 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 
 否则，您可以生成不带“build”关键字的 Windows Batch 或 Linux Shell Script，并通过 `-st` 选项选择 ScriptType，通过 `-bm` 选项选择 BuildMode。
+
+### [MOOS](https://github.com/xiaoyuvax/MOOS)
+是一个几乎用C#写成的原生系统，你可以完全用BFlat + BFlatA来编译它， 虽然它原来是在VS中编排的，且需要MSBuild + ILcompiler来编译。 
+编译方法详情见: [如何用BFlat编译MOOS](https://github.com/xiaoyuvax/MOOS/blob/master/MOOS.bflat.md#building-steps)
+用BFlatA + BFlat工具链来编译MOOS相对来说是一个更复杂的情况，因为如上述连接中所述BFlat自带的链接器不能用需要换用MSVC链接器。但这个示例演示了BFlatA如何灵活地处理一些不常见的情况.
