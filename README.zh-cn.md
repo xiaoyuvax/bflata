@@ -9,7 +9,7 @@ BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用
 - 引用的项目（不管引用关系有多复杂）
 - Nuget 包依赖项（包括包的依赖）
 - 嵌入式资源
-- 本地库依赖项
+- 原生库依赖项
 - .......
 
 一些直观的用法示例：
@@ -109,6 +109,9 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
                                                       与RSP文件不同，BFA文件中的每一行可以包含多个启用了宏的参数（在底部列出）。
 					                  BFA可以用作特定项目的构建配置文件，有点类似于.csproj文件。
 						          如果有任何参数重复，则最后一个有效的参数将覆盖前面的参数，但不适用于<root csproj file>。
+	-pra|--prebuild:<cmd or path to executable>       在编译前执行的一行命令行。可以有多个。
+	
+	-poa|--postbuild:<cmd or path to executable>  	  在编译后执行的一行命令行。可以有多个。
 													  
  
     Shared Options with BFlat:                        
