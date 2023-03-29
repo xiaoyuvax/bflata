@@ -33,7 +33,7 @@ BFlatA源于BFlat的这个问题：https://github.com/bflattened/bflat/issues/61
 
 更新：23-03-22 (版本号：V1.4.2.0)
 - 支持编译前和编译后动作执行外部命令。
-- 确定BFlatA+BFlat工具链能够支持编译像MOOS这样的项目，详情见[示例项目]()。
+- 此版本确保BFlatA+BFlat工具链能够支持编译像MOOS这样的项目，详情见[示例项目](https://github.com/xiaoyuvax/bflata/blob/main/README.zh-cn.md#moos)。
 
 更新：23-03-22 (版本号：V1.4.2.0)
 - 允许指定一个外部链接器，而不是与bflat一起提供的链接器，例如MSVC链接器(link.exe)。
