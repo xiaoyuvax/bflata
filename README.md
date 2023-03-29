@@ -29,6 +29,8 @@ would produce a `myproject_flat` folder, into which all code files, libs, resour
 ## Update Logs   
 
 
+Update 23-03-29 (V1.4.2.0)
+- Support Prebuild Actions & Postbuild Actions, in order to support 
 Update 23-03-22 (V1.4.2.0)
 - Allow specifying an external linker instead of that comes with bflat, such as MSVC linker(link.exe).
 Update 23-03-19 (V1.4.1.0)
@@ -101,9 +103,14 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 	  --resgen:<path to resgen.exe>                 Path to Resource Generator(e.g. ResGen.exe).
 
 	  -inc|--include:<path to BFA file>             BFA files(.bfa) contain any args for BFlatA, each specified by -inc:<filename>.
+
 							Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).
 							BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.
 							If any arg duplicated, valid latters will overwrite, except for <root csproj file>.
+
+	  -pra|--prebuild:<cmd or path to executable>   One command line to be executed before build.Can be multiple.
+
+	  -poa|--postbuild:<cmd or path to executable>  One command line to be executed after build.Can be multiple.
 
 
 	Shared Options with BFlat:
@@ -120,7 +127,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 	Obsolete Options:
 
-	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree', equivalently '-bm:tred',
+	  -dd|--depdep                                  Deposit Dependencies mode, valid with '-bm:tree', equivalently '-bm:treed',
 							where dependencies of child projects are deposited and served to parent project,
 							as to fulfill any possible reference requirements
 
