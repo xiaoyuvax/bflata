@@ -24,7 +24,7 @@ BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用
 
 	bflata flatten-all myproject.csproj
 
-将生成一个名为myproject_flat的文件夹，其中包含myproject的所有代码文件、库和资源，甚至包括所有子项目所引用的内容，作为完整的项目包。您可以直接使用bflat构建此项目，如'go build'。
+将生成一个名为myproject_flat的文件夹，其中包含myproject的所有代码文件、库和资源，甚至包括所有子项目所引用的内容，作为完整的项目包。您可以直接使用bflat构建此项目，类似'go build'。
 
 您可以在 [flattened.net](https://flattened.net) 下载原生 C# 编译器 BFlat。
 
