@@ -31,6 +31,7 @@ would produce a `myproject_flat` folder, into which all code files, libs, resour
 
 Update 23-03-29 (V1.4.2.2)
 - Support Prebuild Actions & Postbuild Actions.
+- This version supports build project like MOOS, check out the [Demo Projects](https://github.com/xiaoyuvax/bflata/edit/main/README.md#moos)
 Update 23-03-22 (V1.4.2.0)
 - Allow specifying an external linker instead of that comes with bflat, such as MSVC linker(link.exe).
 Update 23-03-19 (V1.4.1.0)
