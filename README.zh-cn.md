@@ -28,7 +28,8 @@ BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用
 
 您可以在 [flattened.net](https://flattened.net) 下载原生 C# 编译器 BFlat。
 
-bflat与BFlatA的这个问题相关：https://github.com/bflattened/bflat/issues/61
+BFlatA源于BFlat的这个问题：https://github.com/bflattened/bflat/issues/61
+
 
 更新时间：23-03-22 (版本号：V1.4.2.0)
 - 允许指定一个外部链接器，而不是与bflat一起提供的链接器，例如MSVC链接器(link.exe)。
