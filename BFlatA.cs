@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.4.2.1")]
+[assembly: AssemblyVersion("1.4.2.2")]
 
 namespace BFlatA
 {
@@ -68,6 +68,7 @@ namespace BFlatA
             IsFile = isFile;
             IsDirectory = isDirectory;
             IsOptional = isOptional;
+
         }
     }
 
@@ -396,27 +397,27 @@ namespace BFlatA
 
             if (codeBook.Any())
             {
-                cmd.AppendJoin(NL, codeBook.Select(i => Path.GetFullPath(i.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory))).OrderBy(i => i));
+                cmd.AppendJoin(NL, codeBook.Select(i => Path.GetFullPath(i.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory))).Order());
                 Console.WriteLine($"- Found {codeBook.Count()} code files(*.cs)");
             }
 
             if (libBook.Any())
             {
                 cmd.Append(NL + "-r ");
-                cmd.AppendJoin(NL + "-r ", libBook.Select(i => Path.GetFullPath(i.Replace(PATH_PLACEHOLDER, packageRoot))).OrderBy(i => i));
+                cmd.AppendJoin(NL + "-r ", libBook.Select(i => Path.GetFullPath(i.Replace(PATH_PLACEHOLDER, packageRoot))).Order());
                 Console.WriteLine($"- Found {libBook.Count()} dependent libs(*.dll|*.so)");
             }
             if (nativeLibBook.Any())
             {
                 cmd.Append(NL + "--ldflags ");
-                cmd.AppendJoin(NL + "--ldflags ", nativeLibBook.Select(i => "\"" + Path.GetFullPath(i.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory)) + "\"").OrderBy(i => i));
+                cmd.AppendJoin(NL + "--ldflags ", nativeLibBook.Select(i => "\"" + Path.GetFullPath(i.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory)) + "\"").Order());
                 Console.WriteLine($"- Found {nativeLibBook.Count()} dependent native libs(*.lib|*.a)");
             }
 
             if (resBook.Any())
             {
                 cmd.Append(NL + "-res ");
-                cmd.AppendJoin(NL + "-res ", resBook.DistinctBy(kv => Path.GetFileName(kv.Key)).Select(kv => Path.GetFullPath(kv.Key.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory)) + (string.IsNullOrEmpty(kv.Value) ? "" : "," + kv.Value)).OrderBy(i => i));
+                cmd.AppendJoin(NL + "-res ", resBook.DistinctBy(kv => Path.GetFileName(kv.Key)).Select(kv => Path.GetFullPath(kv.Key.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory)) + (string.IsNullOrEmpty(kv.Value) ? "" : "," + kv.Value)).Order());
                 Console.WriteLine($"- Found {resBook.Count} embedded resources(*.resx and other)");
             }
             if (buildMode != BuildMode.Tree) cmd.Append(NL);  //last return at the end of a script;
@@ -868,15 +869,24 @@ namespace BFlatA
                     {
                         PostBuildActions.Add(pob);
                     }
-                    else if (TryTakeArg(a, "", "--arch", restArgs, out string ax)) Architecture = ax.ToLower();
+
                     else if (TryTakeArg(a, "-bm", "--buildmode", restArgs, out string bm)) BuildMode = ParseBuildMode(bm);
                     else if (TryTakeArg(a, "", "--target", restArgs, out string t)) OutputType = t;
                     else if (TryTakeArg(a, "-fx", "--framework", restArgs, out string fx)) TargetFx = fx.ToLower();
-                    else if (TryTakeArg(a, "", "--os", restArgs, out string os)) OS = os.ToLower();
+                    else if (TryTakeArg(a, "", "--arch", restArgs, out string ax))
+                    {
+                        Architecture = ax.ToLower();
+                        restArgs.Add($"--arch:{ax}");
+                    }
+                    else if (TryTakeArg(a, "", "--os", restArgs, out string os))
+                    {
+                        OS = os.ToLower();
+                        restArgs.Add($"--os:{os}");
+                    }
                     else if (TryTakeArg(a, "-o", "--out", restArgs, out string o)) //hijack -o arg of BFlat, and it shall not be passed to dependent project
                     {
                         OutputFile = o;
-                        restArgs.Remove(a);
+                        restArgs.Add($"--o:{o}");
                     }
                     else if (a.ToLower() == "--verbose")
                     {
@@ -1359,11 +1369,12 @@ namespace BFlatA
             Console.WriteLine($"{"",-COL_WIDTH}TREE = build each project alone and reference'em accordingly with -r option;");
             Console.WriteLine($"{"",-COL_WIDTH}TREED = '-bm:tree -dd'.{NL}");
             Console.WriteLine("  --resgen:<path to resgen.exe>".PadRight(COL_WIDTH) + $"Path to Resource Generator(e.g. ResGen.exe).{NL}");
-            Console.WriteLine("  -inc|--include:<path to BFA file>".PadRight(COL_WIDTH) + $"BFA files(.bfa) contain any args for BFlatA, each specified by -inc:<filename>.");
+            Console.WriteLine("  -inc|--include:<path to BFA file>".PadRight(COL_WIDTH) + $"BFA files(.bfa) contain any args for BFlatA, each specified by -inc:<filename>.{NL}");            
             Console.WriteLine($"{"",-COL_WIDTH}Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).");
             Console.WriteLine($"{"",-COL_WIDTH}BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.");
             Console.WriteLine($"{"",-COL_WIDTH}If any arg duplicated, valid latters will overwrite, except for <root csproj file>.{NL}");
-
+            Console.WriteLine("  -pra|--prebuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to be executed before build.Can be multiple.{NL}");
+            Console.WriteLine("  -poa|--postbuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to be executed after build.Can be multiple.{NL}");
             Console.WriteLine($"{NL}Shared Options with BFlat:{NL}");
             Console.WriteLine("  --target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + $"Build Target.default:<BFlat default>{NL}");
             Console.WriteLine("  --os <Windows|Linux|Uefi>".PadRight(COL_WIDTH) + $"Build Target.default:Windows.{NL}");
@@ -1555,6 +1566,7 @@ namespace BFlatA
             Console.WriteLine("BuildMode".PadRight(COL_WIDTH_FOR_ARGS) + $":{BuildMode}");
             Console.WriteLine("DepositDep".PadRight(COL_WIDTH_FOR_ARGS) + $":{(DepositLib ? "On" : "Off")}");
             Console.WriteLine("Target".PadRight(COL_WIDTH_FOR_ARGS) + $":{OutputType}");
+            Console.WriteLine("TargetOS".PadRight(COL_WIDTH_FOR_ARGS) + $":{OS}");
             Console.WriteLine("Output".PadRight(COL_WIDTH_FOR_ARGS) + $":{OutputFile ?? "<Default>"}");
             Console.WriteLine("TargetFx".PadRight(COL_WIDTH_FOR_ARGS) + $":{TargetFx}");
             Console.WriteLine("PackageRoot".PadRight(COL_WIDTH_FOR_ARGS) + $":{PackageRoot ?? "<N/A>"}");
