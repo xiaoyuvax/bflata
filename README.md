@@ -195,7 +195,8 @@ Now BFlatA would automatically add relevant `--feature` args if `--resgen` arg i
 
 ## Demo project
 
-[ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) is a simple C# project with one Project Reference and one Nuget Package reference together with several secondary dependencies, and is a typical scenario for demonstrating how BFlata works with BFlat.
+### [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
+is a simple C# project with one Project Reference and one Nuget Package reference together with several secondary dependencies, and is a typical scenario for demonstrating how BFlata works with BFlat.
 
 > Note:It is important to disable `<ImplicitUsings>` in .csproj file,
 > and make sure all necessary namespaces are imported, especially `using
@@ -282,3 +283,9 @@ and following is the content of the build script (Response File) generated above
     -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.primitives\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll
     -r C:\Users\xiaoyu\.nuget\packages\nest\7.17.5\lib\netstandard2.0\Nest.dll
 
+		  
+
+### [MOOS](https://github.com/xiaoyuvax/MOOS)
+is a native OS almost totally written in C#, and you can build it completely with BFlat + BFlatA, despite it was originally orchestrated in VS and require MSBuild + ILcompiler to build. 
+Check out: [How to build MOOS with BFlatA](https://github.com/xiaoyuvax/MOOS/blob/master/MOOS.bflat.md#building-steps)
+MOOS is a relatively more complicated case to build through BFlatA + BFlat toolchian, in which the linker comes with BFlat is replaced with MSVC linker in above link, and it demonstrates how BFlatA can cope with some unusual condition felixbly.
