@@ -22,7 +22,7 @@ would produce a `myproject.exe` and a `build.rsp` if bflat is properly installed
 
 would produce a `myproject_flat` folder, into which all code files, libs, resources of myproject even together with what all child projects referenced would be extracted and copied, as a complete project package, in which u can build the project with bflat direclty like 'go build'.
 
-  You can find BFlat, the native C# compiler at [flattened.net](https://flattened.net).
+  You can find BFlat, the C# native compiler at [flattened.net](https://flattened.net).
   
   BFlatA is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
   
