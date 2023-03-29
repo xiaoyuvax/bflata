@@ -199,7 +199,7 @@ Now BFlatA would automatically add relevant `--feature` args if `--resgen` arg i
 
 - [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/bflata/blob/main/README.md#ObjectPoolReuseCaseDemo) - a simple project with a hierachy of dependencies.
 - [MOOS](https://github.com/xiaoyuvax/bflata/blob/main/README.md#moos) - a native OS almost totally written in C#.
-- [You are welcome to add more demo  url which can be compiled by flat here, [write me](mailto:xiaoyu.vax@qq.com) ]
+- [You are welcome to suggest more demo project which can be built by BFlatA here...[write me](mailto:xiaoyu.vax@qq.com) ]
 
 ### [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
 is a simple C# project with one Project Reference and one Nuget Package reference together with several secondary dependencies, and is a typical scenario for demonstrating how BFlata works with BFlat.
