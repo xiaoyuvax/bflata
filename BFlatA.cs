@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.4.2.2")]
+[assembly: AssemblyVersion("1.4.3.0")]
 
 namespace BFlatA
 {
@@ -96,7 +96,7 @@ namespace BFlatA
         public static readonly string WorkingPath = Directory.GetCurrentDirectory();
         public static readonly XNamespace XSD_NUGETSPEC = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
         public static Verb Action = Verb.Script;
-        public static string Architecture = "x64";
+        public static string Architecture = "<Default>";
 
         public static BuildMode BuildMode = BuildMode.None;
         public static List<string> CacheLib = new();
@@ -1036,7 +1036,7 @@ namespace BFlatA
                         var noStandardLibraries = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "nostandardlibraries")?.Value;
                         var ilcSystemModule = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "ilcsystemmodule")?.Value ?? "";
                         var optimize = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "optimize")?.Value ?? "";
-                        if (nostdlib?.ToLower() == "true" || noStandardLibraries?.ToLower() == "true" || ilcSystemModule != null) restArgs.Add("--stdlib:None");
+                        if (nostdlib?.ToLower() == "true" || noStandardLibraries?.ToLower() == "true" || !string.IsNullOrEmpty(ilcSystemModule)) restArgs.Add("--stdlib:None");
                         if (!restArgs.Any("-Ot-Os-O0".Contains))
                             switch (ilcOptimizationPreference?.ToLower())
                             {
@@ -1357,7 +1357,7 @@ namespace BFlatA
             Console.WriteLine($"{"",-COL_WIDTH}FALTTEN-ALL = flatten + copy all dependencies and resources to dest path,");
             Console.WriteLine($"{"",-COL_WIDTH}both with dependency references written to a BFA file.");
             Console.WriteLine($"{"",-COL_WIDTH}If omitted, generate build script only, with -bm option still valid.{NL}");
-            Console.WriteLine("  <root csproj file>".PadRight(COL_WIDTH) + "Must be the 2nd arg if 'build' specified, or the 1st otherwise, only 1 root project allowed.");
+            Console.WriteLine("  <root .csproj file>".PadRight(COL_WIDTH) + "Must be the 2nd arg if 'build' specified, or the 1st otherwise, only 1 root project allowed.");
             Console.WriteLine($"{NL}Options:{NL}");
             Console.WriteLine("  -pr|--packageroot:<path to package storage>".PadRight(COL_WIDTH) + $"eg.'C:\\Users\\%username%\\.nuget\\packages' or '$HOME/.nuget/packages'.{NL}");
             Console.WriteLine("  -h|--home:<MSBuildStartupDirectory>".PadRight(COL_WIDTH) + $"Path to VS solution usually, default:current directory.");
@@ -1365,20 +1365,20 @@ namespace BFlatA
             Console.WriteLine($"{"",-COL_WIDTH}and is needed for entire solution to compile correctly.{NL}");
             Console.WriteLine("  -fx|--framework:<moniker>".PadRight(COL_WIDTH) + "The TFM compatible with the built-in .net runtime of BFlat(see 'bflat --info')");
             Console.WriteLine($"{"",-COL_WIDTH}mainly purposed for matching dependencies, e.g. 'net7.0'{NL}");
-            Console.WriteLine("  -bm|--buildmode:<flat|tree|treed>".PadRight(COL_WIDTH) + "FLAT = flatten project tree to one for building;");
+            Console.WriteLine("  -bm|--buildmode:<flat|tree|treed>".PadRight(COL_WIDTH) + "FLAT = flatten project tree to one for building;(default)");
             Console.WriteLine($"{"",-COL_WIDTH}TREE = build each project alone and reference'em accordingly with -r option;");
             Console.WriteLine($"{"",-COL_WIDTH}TREED = '-bm:tree -dd'.{NL}");
             Console.WriteLine("  --resgen:<path to resgen.exe>".PadRight(COL_WIDTH) + $"Path to Resource Generator(e.g. ResGen.exe).{NL}");
-            Console.WriteLine("  -inc|--include:<path to BFA file>".PadRight(COL_WIDTH) + $"BFA files(.bfa) contain any args for BFlatA, each specified by -inc:<filename>.{NL}");            
+            Console.WriteLine("  -inc|--include:<path to BFA file>".PadRight(COL_WIDTH) + $"BFA files(.bfa) contain any args for BFlatA, each specified by -inc:<filename>.{NL}");
             Console.WriteLine($"{"",-COL_WIDTH}Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).");
             Console.WriteLine($"{"",-COL_WIDTH}BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.");
-            Console.WriteLine($"{"",-COL_WIDTH}If any arg duplicated, valid latters will overwrite, except for <root csproj file>.{NL}");
-            Console.WriteLine("  -pra|--prebuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to be executed before build.Can be multiple.{NL}");
-            Console.WriteLine("  -poa|--postbuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to be executed after build.Can be multiple.{NL}");
+            Console.WriteLine($"{"",-COL_WIDTH}If any arg duplicated, valid latters will overwrite, except for <root .csproj file>.{NL}");
+            Console.WriteLine("  -pra|--prebuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to execute before build.(Can be multiple).{NL}");
+            Console.WriteLine("  -poa|--postbuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to execute after build.(Can be multiple).{NL}");
             Console.WriteLine($"{NL}Shared Options with BFlat:{NL}");
-            Console.WriteLine("  --target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + $"Build Target.default:<BFlat default>{NL}");
-            Console.WriteLine("  --os <Windows|Linux|Uefi>".PadRight(COL_WIDTH) + $"Build Target.default:Windows.{NL}");
-            Console.WriteLine("  --arch <x64|arm64|x86|...>".PadRight(COL_WIDTH) + $"Platform archetecture.default:x64.{NL}");
+            Console.WriteLine("  --target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + $"Build Target.Default:<BFlat default>{NL}");
+            Console.WriteLine("  --os <Windows|Linux|Uefi>".PadRight(COL_WIDTH) + $"Build Target.Default:Windows.{NL}");
+            Console.WriteLine("  --arch <x64|arm64|x86|...>".PadRight(COL_WIDTH) + $"Platform archetecture.<BFlat default>{NL}");
             Console.WriteLine("  -o|--out:<File>".PadRight(COL_WIDTH) + $"Output file path for the root project.{NL}");
             Console.WriteLine("  --verbose".PadRight(COL_WIDTH) + "Enable verbose logging");
             Console.WriteLine($"{NL}Obsolete Options:{NL}");
@@ -1561,18 +1561,19 @@ namespace BFlatA
             else if (restArgs.Contains("?")) return 0;
 
             //echo args.
+            string padLine(string key, string value) => key.PadRight(COL_WIDTH_FOR_ARGS) + value;
             Console.WriteLine($"{NL}--ARGS--------------------------------");
-            Console.WriteLine("Action".PadRight(COL_WIDTH_FOR_ARGS) + $":{Action}");
-            Console.WriteLine("BuildMode".PadRight(COL_WIDTH_FOR_ARGS) + $":{BuildMode}");
-            Console.WriteLine("DepositDep".PadRight(COL_WIDTH_FOR_ARGS) + $":{(DepositLib ? "On" : "Off")}");
-            Console.WriteLine("Target".PadRight(COL_WIDTH_FOR_ARGS) + $":{OutputType}");
-            Console.WriteLine("TargetOS".PadRight(COL_WIDTH_FOR_ARGS) + $":{OS}");
-            Console.WriteLine("Output".PadRight(COL_WIDTH_FOR_ARGS) + $":{OutputFile ?? "<Default>"}");
-            Console.WriteLine("TargetFx".PadRight(COL_WIDTH_FOR_ARGS) + $":{TargetFx}");
-            Console.WriteLine("PackageRoot".PadRight(COL_WIDTH_FOR_ARGS) + $":{PackageRoot ?? "<N/A>"}");
-            Console.WriteLine("Home".PadRight(COL_WIDTH_FOR_ARGS) + $":{MSBuildStartupDirectory}");
-            if (BFAList.Count > 0) Console.WriteLine("BFA Includes".PadRight(COL_WIDTH_FOR_ARGS) + $":{BFAList.Count}");
-            Console.WriteLine("Args for BFlat".PadRight(COL_WIDTH_FOR_ARGS) + $":{string.Join(' ', restArgs)}");
+            Console.WriteLine(padLine("Action", $":{Action}"));
+            Console.WriteLine(padLine("BuildMode", $":{BuildMode}"));
+            Console.WriteLine(padLine("DepositDep", $":{(DepositLib ? "On" : "Off")}"));
+            Console.WriteLine(padLine("Target", $":{OutputType}"));
+            Console.WriteLine(padLine("TargetOS", $":{OS}"));
+            Console.WriteLine(padLine("Output", $":{OutputFile ?? "<Default>"}"));
+            Console.WriteLine(padLine("TargetFx", $":{TargetFx}"));
+            Console.WriteLine(padLine("PackageRoot", $":{PackageRoot ?? "<N/A>"}"));
+            Console.WriteLine(padLine("Home", $":{MSBuildStartupDirectory}"));
+            if (BFAList.Count > 0) Console.WriteLine(padLine("BFA Includes", $":{BFAList.Count}"));
+            Console.WriteLine(padLine("Args for BFlat", $":{string.Join(' ', restArgs)}"));
             Console.WriteLine();
 
             if (!string.IsNullOrEmpty(ProjectFile))
@@ -1580,13 +1581,13 @@ namespace BFlatA
                 Console.WriteLine($"--LIB EXCLU---------------------------");
                 var fxExclu = TargetFx + ".exclu";
                 if (File.Exists(CUSTOM_EXCLU_FILENAME)) LoadExclu(CUSTOM_EXCLU_FILENAME);
-
                 if (File.Exists(fxExclu)) LoadExclu(fxExclu);
                 else if (Directory.Exists(RuntimePathExclu))
                 {
                     LibExclu = ExtractExclu(RuntimePathExclu);
                     WriteExclu(TargetFx);
                 }
+
                 Console.WriteLine($"--LIB CACHE---------------------------");
                 if (File.Exists(LIB_CACHE_FILENAME))
                 {
@@ -1598,7 +1599,6 @@ namespace BFlatA
                     Console.WriteLine($"{NL}Nuspec cache found!");
                     CacheNuspec = LoadCache(NUSPEC_CACHE_FILENAME);
                 }
-
                 if (!string.IsNullOrEmpty(PackageRoot) && (CacheLib.Count == 0 || CacheNuspec.Count == 0))
                 {
                     PreCacheLibs(PackageRoot);
