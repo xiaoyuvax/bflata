@@ -300,8 +300,7 @@ and following is the content of the build script (Response File) generated above
 
 ### [MOOS](https://github.com/xiaoyuvax/MOOS)
 is a native OS almost totally written in C#, and you can build it completely with BFlat + BFlatA, despite it was originally orchestrated in VS and require MSBuild + ILcompiler to build. 
-
 Check out: [How to build MOOS with BFlatA](https://github.com/xiaoyuvax/MOOS/blob/master/MOOS.bflat.md#building-steps).
 	
-MOOS is a relatively more complicated example to build through BFlatA + BFlat toolchian, in which the linker comes with BFlat is replaced with MSVC linker in above link, and it demonstrates how BFlatA can cope with some unusual condition flexibly.
+MOOS is a relatively more complicated example to build through BFlatA + BFlat toolchian, in which the linker comes with BFlat is replaced with MSVC linker, and it demonstrates how BFlatA can cope with some unusual condition flexibly.
 ![image](https://user-images.githubusercontent.com/6511226/228498471-0baf5415-b000-45f8-9c20-b35b3f634089.png)
