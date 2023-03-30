@@ -1,1 +1,1 @@
-bflat build bflata.cs --stdlib Dotnet
+bflat build bflata.cs
