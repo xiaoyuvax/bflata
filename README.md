@@ -28,7 +28,7 @@ would produce a `myproject_flat` folder, into which all code files, libs, resour
   
 ## Update Logs   
 
-Update 23-03-29 (V1.4.3)
+Update 23-03-30 (V1.4.3)
 - <NoStdLib> flag bug fixed.
 Update 23-03-29 (V1.4.2.2)
 - Support Prebuild Actions & Postbuild Actions.
