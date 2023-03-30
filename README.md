@@ -38,6 +38,8 @@ Update 23-03-29 (V1.4.2.2)
 Update 23-03-22 (V1.4.2.0)
 - Allow specifying an external linker instead of that comes with bflat, such as MSVC linker(link.exe).
 
+<details>
+<summary>[Click to see earlier updates...]</summary>
 Update 23-03-19 (V1.4.1.0)
 - Introduced BFA file(literally BFlatA Arguments file) instead of RSP file, which can be used with -inc:<BFA file> option to combine multiple arg profiles to generate build script, and it supports macros and doesn't have to store args as "one arg per line". BFA file can be treated like a project file, in order to switch among different projects more conveniently, if well-organized.
 - Introduced new `flatten|flatten-all` verbs allowing extraction of code files together with their dependencies/resources to specified dest location, where project files are organized in a flattened, GO-like path hierachy, which can be directly built by BFlat (similar with `go build`), `flatten-all` also copies all dependent libs so that you can pack the path structure together with all dependencies as a whole.
@@ -76,6 +78,7 @@ Update 23-02-24:
 Note: a single .rsp file itself does not support building project Tree, instead you may use `-st:bat` or `-st:sh` to generate script that supports building project trees, or build through BFlatA directly(with both `build` and `-bm:tree` option on).  
 - Paths cache of Nuget packages are now saved to packages.cache in the working path, and will be reused at the next run, as to improve performance.
 - A new `-dd` (Deposit Dependencies) option is introduced for compiling projects who uses references of child projects indirectly, and still offering certain extent of version consistency, where dependencies are added-up (deposited) along the hiearchy line and be accumulatively served to the parent project level by level (if any dependency version conflict upon merging with parent level, higher version will be retained, as to guarantee maximal version compatibility).
+</details>
 
 ## Usage
 
@@ -201,13 +204,13 @@ Now BFlatA would automatically add relevant `--feature` args if `--resgen` arg i
 
 ## Demo project
 
-- [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/bflata/blob/main/README.md#ObjectPoolReuseCaseDemo) - a simple project with a hierachy of dependencies.
-- [MOOS](https://github.com/xiaoyuvax/bflata/blob/main/README.md#moos) - a native OS almost totally written in C#.
 - [You are welcome to suggest more demo project which can be built by BFlatA here...[write me](mailto:xiaoyu.vax@qq.com) ]
 
 ### [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
 is a simple C# project with one Project Reference and one Nuget Package reference together with several secondary dependencies, and is a typical scenario for demonstrating how BFlata works with BFlat.
-
+<details>
+<summary>[Click to see more details]</summary>
+	
 > Note:It is important to disable `<ImplicitUsings>` in .csproj file,
 > and make sure all necessary namespaces are imported, especially `using
 > System;` if you are building with `--stdlib Dotnet` option of bflat.
@@ -292,11 +295,13 @@ and following is the content of the build script (Response File) generated above
     -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.options\7.0.0\lib\netstandard2.1\Microsoft.Extensions.Options.dll
     -r C:\Users\xiaoyu\.nuget\packages\microsoft.extensions.primitives\7.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll
     -r C:\Users\xiaoyu\.nuget\packages\nest\7.17.5\lib\netstandard2.0\Nest.dll
-
-		  
+</details>
+	  
 
 ### [MOOS](https://github.com/xiaoyuvax/MOOS)
 is a native OS almost totally written in C#, and you can build it completely with BFlat + BFlatA, despite it was originally orchestrated in VS and require MSBuild + ILcompiler to build. 
+
 Check out: [How to build MOOS with BFlatA](https://github.com/xiaoyuvax/MOOS/blob/master/MOOS.bflat.md#building-steps).
+	
 MOOS is a relatively more complicated example to build through BFlatA + BFlat toolchian, in which the linker comes with BFlat is replaced with MSVC linker in above link, and it demonstrates how BFlatA can cope with some unusual condition flexibly.
 ![image](https://user-images.githubusercontent.com/6511226/228498471-0baf5415-b000-45f8-9c20-b35b3f634089.png)
