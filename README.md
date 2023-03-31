@@ -20,7 +20,7 @@ would produce a `myproject.exe` and a `build.rsp` if bflat is properly installed
 
 	bflata flatten-all myproject.csproj
 
-would produce a `myproject_flat` folder, into which all code files, libs, resources of myproject even together with what all child projects referenced would be extracted and copied, as a complete project package, in which u can build the project with bflat direclty like 'go build'.
+would produce a `myproject.flat` folder, into which all code files, libs, resources of myproject even together with what all child projects referenced would be extracted and copied, as a complete project package, in which u would expect to build the project with bflat direclty like 'go build'.
 
   You can find BFlat, the C# native compiler at [flattened.net](https://flattened.net).
   
