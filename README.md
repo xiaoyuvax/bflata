@@ -20,7 +20,7 @@ would produce a `myproject.exe` and a `build.rsp` if bflat is properly installed
 
 	bflata flatten-all myproject.csproj
 
-would produce a `myproject_flat` folder, into which all code files, libs, resources of myproject even together with what all child projects referenced would be extracted and copied, as a complete project package, in which u can build the project with bflat direclty like 'go build'.
+would produce a `myproject.flat` folder, into which all code files, libs, resources of myproject even together with what all child projects referenced would be extracted and copied, as a complete project package, in which u would expect to build the project with bflat direclty like 'go build'.
 
   You can find BFlat, the C# native compiler at [flattened.net](https://flattened.net).
   
@@ -32,8 +32,8 @@ Update 23-03-30 (V1.4.3.0)
 - `<NoStdLib>` flag bug fixed.
 
 Update 23-03-29 (V1.4.2.2)
-- Support Prebuild Actions & Postbuild Actions.
-- This version supports build project like MOOS, check out the [Demo Projects](https://github.com/xiaoyuvax/bflata/blob/main/README.md#moos)
+- Support Prebuild/Postbuild Actions.
+- This version supports building project like MOOS, check out the [Demo Projects](https://github.com/xiaoyuvax/bflata/blob/main/README.md#moos)
 
 Update 23-03-22 (V1.4.2.0)
 - Allow specifying an external linker instead of that comes with bflat, such as MSVC linker(link.exe).
@@ -83,7 +83,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 ## Usage
 
 
-	  Usage: bflata [build|build-il] <root csproj file> [options]
+	  Usage: bflata [build|build-il|flatten|flatten-all] <root csproj file> [options]
 
 	  [build|build-il|flatten|flatten-all]          BUILD|BUILD-IL = build with BFlat in %Path% in native or in IL.
 							FLATTEN = extract code files from project hierachy into a "flattened, Go-like" path hierachy,
@@ -299,7 +299,7 @@ and following is the content of the build script (Response File) generated above
 	  
 
 ### [MOOS](https://github.com/xiaoyuvax/MOOS)
-is a native OS almost totally written in C#, and you can build it completely with BFlat + BFlatA, despite it was originally orchestrated in VS and require MSBuild + ILcompiler to build. 
+is a native OS almost totally written in C#, and you can build it completely with BFlat + BFlatA + MSVCLinker, despite it was originally orchestrated in VS and require MSBuild + ILcompiler + MSVCLinker to build. 
 Check out: [How to build MOOS with BFlatA](https://github.com/xiaoyuvax/MOOS/blob/master/MOOS.bflat.md#building-steps).
 	
 MOOS is a relatively more complicated example to build through BFlatA + BFlat toolchian, in which the linker comes with BFlat is replaced with MSVC linker, and it demonstrates how BFlatA can cope with some unusual condition flexibly.
