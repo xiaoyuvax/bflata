@@ -30,6 +30,8 @@ BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用
 
 BFlatA源于BFlat的这个问题：https://github.com/bflattened/bflat/issues/61
 
+## 更新日志 
+
 更新 23-03-30 (V1.4.3.0)
 - `<NoStdLib>` 标志处理bug.
 
