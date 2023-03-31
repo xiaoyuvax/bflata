@@ -83,7 +83,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 ## Usage
 
 
-	  Usage: bflata [build|build-il] <root csproj file> [options]
+	  Usage: bflata [build|build-il|flatten|flatten-all] <root csproj file> [options]
 
 	  [build|build-il|flatten|flatten-all]          BUILD|BUILD-IL = build with BFlat in %Path% in native or in IL.
 							FLATTEN = extract code files from project hierachy into a "flattened, Go-like" path hierachy,
