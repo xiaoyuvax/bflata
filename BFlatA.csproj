@@ -6,4 +6,8 @@
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 	</PropertyGroup>
 
+	<ItemGroup>
+	  <None Remove="bflata.exe" />
+	</ItemGroup>
+
 </Project>
