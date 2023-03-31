@@ -96,7 +96,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 ##  使用说明：
 
-	Usage: bflata [build|build-il] <root .csproj file> [options]
+	Usage: bflata [build|build-il|flatten|flatten-all] <root .csproj file> [options]
 
 	[build|build-il|flatten|flatten-all]          BUILD|BUILD-IL 意思是使用 %Path% 中的 BFlat 进行本地或 IL 编译。
 						      FLATTEN 表示从项目层次结构中提取代码文件，并将其放入“平铺的、类似 Go 的”路径层次结构中，
