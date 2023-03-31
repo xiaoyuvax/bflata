@@ -32,8 +32,8 @@ Update 23-03-30 (V1.4.3.0)
 - `<NoStdLib>` flag bug fixed.
 
 Update 23-03-29 (V1.4.2.2)
-- Support Prebuild Actions & Postbuild Actions.
-- This version supports build project like MOOS, check out the [Demo Projects](https://github.com/xiaoyuvax/bflata/blob/main/README.md#moos)
+- Support Prebuild/Postbuild Actions.
+- This version supports building project like MOOS, check out the [Demo Projects](https://github.com/xiaoyuvax/bflata/blob/main/README.md#moos)
 
 Update 23-03-22 (V1.4.2.0)
 - Allow specifying an external linker instead of that comes with bflat, such as MSVC linker(link.exe).
