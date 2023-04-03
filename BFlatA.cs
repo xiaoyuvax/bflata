@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.5.0.1")]
+[assembly: AssemblyVersion("1.5.0.2")]
 
 namespace BFlatA
 {
@@ -595,7 +595,10 @@ namespace BFlatA
                 { "MSBuildThisFileFullPath",projectPath},
                 { "MSBuildThisFileName",Path.GetFileNameWithoutExtension(projectFile)},
 
-                {"MSBuildStartupDirectory", MSBuildStartupDirectory.TrimPathEnd() }
+                {"MSBuildStartupDirectory", MSBuildStartupDirectory.TrimPathEnd() },
+                {"NativeOutputPath", Path.GetFullPath( Path.GetDirectoryName(OutputFile ?? "./.")).TrimPathEnd()+PathSep },
+                {"TargetName", projectName },
+                { "NativeBinaryExt",OutputType.ToLower() switch{ "exe" => IsLinux?"":".exe","winexe"=>".exe", "shared"=> IsLinux?".so":".dll", _=>""} }
             };
         }
 
@@ -944,14 +947,8 @@ namespace BFlatA
                     {
                         bfaFiles.Add(inc);
                     }
-                    else if (TryTakeArg(a, "-pra", "--prebuild", restArgs, out string prb))
-                    {
-                        PreBuildActions.Add(prb);
-                    }
-                    else if (TryTakeArg(a, "-poa", "--postbuild", restArgs, out string pob))
-                    {
-                        PostBuildActions.Add(pob);
-                    }
+                    else if (TryTakeArg(a, "-pra", "--prebuild", restArgs, out string prb)) PreBuildActions.Add(prb);
+                    else if (TryTakeArg(a, "-poa", "--postbuild", restArgs, out string pob)) PostBuildActions.Add(pob);
                     else if (TryTakeArg(a, "-bm", "--buildmode", restArgs, out string bm)) BuildMode = ParseBuildMode(bm);
                     else if (TryTakeArg(a, "", "--target", restArgs, out string t)) OutputType = t;
                     else if (TryTakeArg(a, "-fx", "--framework", restArgs, out string fx)) TargetFx = fx.ToLower();
