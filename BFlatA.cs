@@ -30,6 +30,16 @@ namespace BFlatA
         FlattenAll
     }
 
+    public class ReferenceInfo
+    {
+        public string HintPath;
+        public string Name;
+        public string FusionName;
+        public string SpecificVersion;
+        public string Aliases;
+        public bool Private;
+    }
+
     public static class XExtention
     {
         public static IEnumerable<XElement> OfInclude(this IEnumerable<XElement> r, string elementName) => r.Where(i => i.Name.LocalName.ToLower() == elementName.ToLower() && i.Attribute("Include") != null);
@@ -359,7 +369,7 @@ namespace BFlatA
             if (resBook.Any())
             {
                 flatBook = doCopy(resBook.DistinctBy(kv => Path.GetFileName(kv.Key))
-                   .Select(kv => Path.GetFullPath(kv.Key.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory))).Order());
+                    .Select(kv => Path.GetFullPath(kv.Key.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory))).Order());
                 if (flatBook.Any())
                 {
                     cmd.Append(NL + "-res ");
@@ -566,7 +576,7 @@ namespace BFlatA
         public static string GetFrameworkPath(string frameworkName)
         {
             string getLibPath(string fxPath) => Path.GetFullPath(Directory.GetDirectories(fxPath).OrderDescending()
-                        .FirstOrDefault(i => i.Contains($"{PathSep}{TargetFx.Replace("net", "")}")) + RuntimesPathSegment + OSArchMoniker + LibPathSegment + TargetFx);
+                       .FirstOrDefault(i => i.Contains($"{PathSep}{TargetFx.Replace("net", "")}")) + RuntimesPathSegment + OSArchMoniker + LibPathSegment + TargetFx);
 
             if (!string.IsNullOrEmpty(PackageRoot))
             {
@@ -1033,22 +1043,22 @@ namespace BFlatA
         };
 
         public static int ParseProject(BuildMode buildMode,
-                                               string projectFile,
-                                               string[] allLibPaths,
-                                               string target,
-                                               string packageRoot,
-                                               out string projectName,
-                                               out string outputType,
-                                               out string script,
-                                               in List<string> restArgs,
-                                               in List<string> codeBook,
-                                               in List<string> libBook,
-                                               in List<string> nativeLibBook,
-                                               in List<string> refProjectBook,
-                                               in List<string> linkerArgs,
-                                               in List<string> defineConstants,
-                                               in Dictionary<string, string> resBook,
-                                               bool isDependency = false)
+                                                 string projectFile,
+                                                 string[] allLibPaths,
+                                                 string target,
+                                                 string packageRoot,
+                                                 out string projectName,
+                                                 out string outputType,
+                                                 out string script,
+                                                 in List<string> restArgs,
+                                                 in List<string> codeBook,
+                                                 in List<string> libBook,
+                                                 in List<string> nativeLibBook,
+                                                 in List<string> refProjectBook,
+                                                 in List<string> linkerArgs,
+                                                 in List<string> defineConstants,
+                                                 in Dictionary<string, string> resBook,
+                                                 bool isDependency = false)
         {
             outputType = "Exe";
             script = null;
@@ -1062,6 +1072,8 @@ namespace BFlatA
             List<string> includeBook = new();
             List<string> contentBook = new();
             List<string> myRefProject = new();
+            Dictionary<string, ReferenceInfo> referenceBook = new();
+            Dictionary<string, ReferenceInfo> nativeReferenceBook = new();
 
             bool useWinform = false;
             bool useWpf = false;
@@ -1166,11 +1178,31 @@ namespace BFlatA
                         bool hasTarget = targets?.Any(i => i.Contains(target)) == true;
                         if (hasTarget || isStandardLib)
                         {
-                            AddElement2List(ig.OfRemove("Compile"), removeBook, "CompileRemove", "Remove");
-                            AddElement2List(ig.OfInclude("Compile"), includeBook, "CompileInclude");
+                            AddElement2List(ig.OfRemove("Compile"), removeBook, "Code Exclude", "Remove");
+                            AddElement2List(ig.OfInclude("Compile"), includeBook, "Code");
                             AddElement2List(ig.OfInclude("Content"), contentBook, "Content");
                             AddElement2List(ig.OfInclude("NativeLibrary"), nativeLibBook, "NativeLib");
-                            AddElement2Dict(ig.OfInclude("EmbeddedResource"), resBook, "EmbeddedResource", useAbsolutePath: false);
+                            AddResources2Dict(ig.OfInclude("EmbeddedResource"), resBook, "EmbeddedResource", useAbsolutePath: false);
+
+                            AddReferences2Dict(ig.OfInclude("Reference"), referenceBook, "ManagedAssembly");
+                            AddReferences2Dict(ig.OfInclude("NativeReference"), nativeReferenceBook, "NativeReference");
+
+                            #region Compatible with earlier version of .csproj file(not tested)
+
+                            //Managed Assemblies, ToDo:Test
+                            foreach (var r in referenceBook)
+                            {
+                                //Assemblies with hintpath will be added to libBook
+                                if (!string.IsNullOrEmpty(r.Value.HintPath)) libBook.Add(r.Value.HintPath);
+                                //Assemblies with specific version will be added to packageReferences
+                                else if (!string.IsNullOrEmpty(r.Value.SpecificVersion)) packageReferences.TryAdd(r.Key, r.Value.SpecificVersion);
+                                else packageReferences.TryAdd(r.Key, "0.0.0.0-7.0.0.0"); //give a version range, but not tested
+                            }
+
+                            //Native references, ToDo:Test
+                            nativeLibBook.AddRange(nativeReferenceBook.Select(i => i.Value.HintPath));
+
+                            #endregion Compatible with earlier version of .csproj file(not tested)
 
                             //Parse Package Dependencies
                             foreach (var pr in ig.OfInclude("PackageReference")) packageReferences.TryAdd(pr.Attribute("Include")?.Value, pr.Attribute("Version")?.Value);
@@ -1200,7 +1232,7 @@ namespace BFlatA
                             foreach (var c in codeBook.Where(i => i.ToLower().EndsWith(".designer.cs"))
                                 .Select(i => i[..^12] + ".resx")
                                 .Where(i => File.Exists(i.Replace(PATH_PLACEHOLDER, MSBuildStartupDirectory)))
-                                ) resBook.TryAdd(c, null);
+                                    ) resBook.TryAdd(c, null);
 
                             //Recursively parse/build all referenced projects
                             foreach (string p in ig.OfInclude("ProjectReference").ExtractAttributePathValues("Include", projectPath, msBuildMacros)
@@ -1329,20 +1361,34 @@ namespace BFlatA
                             return counter;
                         }
 
-                        int AddElement2Dict(IEnumerable<XElement> elements, Dictionary<string, string> book, string displayAction, string action = "Include", bool useAbsolutePath = true)
+                        int AddResources2Dict(IEnumerable<XElement> elements, Dictionary<string, string> book, string displayAction, string action = "Include", bool useAbsolutePath = true)
                         {
-                            //This method is easy to extent to more categories.
-                            //CodeFiles and PackageReferences r exceptions and stored otherwise.
+                            int counter = 0;
+
+                            IEnumerable<string> items = ExtractAttributePathValues(elements, action, projectPath, msBuildMacros);
+                            //relative paths used by script is relative to WorkingPath
+                            if (!useAbsolutePath) items = items.ToRefedPaths();
+
+                            foreach (var p in items)
+                            {
+                                if (book.TryAdd(p, Path.GetFileName(p))) counter++;
+                            }
+
+                            if (counter > 0) Console.WriteLine($"{displayAction,24}\t[{action}]\t{counter} items added!");
+                            return counter;
+                        }
+                        int AddReferences2Dict(IEnumerable<XElement> elements, Dictionary<string, ReferenceInfo> book, string displayAction, string action = "Include", bool useAbsolutePath = true)
+                        {
                             int counter = 0;
                             foreach (var i in elements)
                             {
-                                IEnumerable<string> items = ExtractAttributePathValues(elements, action, projectPath, msBuildMacros);
-                                //relative paths used by script is relative to WorkingPath
-                                if (!useAbsolutePath) items = items.ToRefedPaths();
+                                var assmblyName = i.Attribute(action)?.Value;
+                                var specificVersion = i.Descendants("SpecificVersion").FirstOrDefault()?.Value;
+                                var hintPath = i.Descendants("HintPath").FirstOrDefault()?.Value;
+                                bool _private = i.Descendants("Private").FirstOrDefault()?.Value.ToLower() == "true";
 
-                                foreach (var p in items) book.TryAdd(p, Path.GetFileName(p));
-
-                                counter += items.Count();
+                                hintPath = GetAbsPaths(hintPath, projectPath).FirstOrDefault();
+                                if (book.TryAdd(assmblyName, new ReferenceInfo() { HintPath = hintPath, Name = assmblyName, SpecificVersion = specificVersion, Private = _private })) counter++;
                             }
                             if (counter > 0) Console.WriteLine($"{displayAction,24}\t[{action}]\t{counter} items added!");
                             return counter;
