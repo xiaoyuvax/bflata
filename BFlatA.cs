@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.5.0.2")]
+[assembly: AssemblyVersion("1.5.0.3")]
 
 namespace BFlatA
 {
@@ -135,7 +135,7 @@ namespace BFlatA
         public static readonly string WorkingPath = Directory.GetCurrentDirectory();
         public static readonly XNamespace XSD_NUGETSPEC = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd";
         public static Verb Action = Verb.Script;
-        public static string Architecture = "<Default>";
+        public static string Architecture = "x64";  //better be default to x64
 
         /// <summary>
         /// TODO:Dicitonary storing argument definitions...
@@ -565,10 +565,16 @@ namespace BFlatA
 
         public static string GetFrameworkPath(string frameworkName)
         {
-            if (!string.IsNullOrEmpty(PackageRoot)) return Path.GetFullPath(Directory.GetDirectories(PackageRoot + PathSep + $"{frameworkName}.{OSArchMoniker}").OrderDescending()
-                        .FirstOrDefault(i => i.Contains($"{PathSep}{TargetFx.Replace("net", "")}"))
-                + RuntimesPathSegment + OSArchMoniker + LibPathSegment + TargetFx);
-            else return null;
+            string getLibPath(string fxPath) => Path.GetFullPath(Directory.GetDirectories(fxPath).OrderDescending()
+                        .FirstOrDefault(i => i.Contains($"{PathSep}{TargetFx.Replace("net", "")}")) + RuntimesPathSegment + OSArchMoniker + LibPathSegment + TargetFx);
+
+            if (!string.IsNullOrEmpty(PackageRoot))
+            {
+                string frameworkPath = PackageRoot + PathSep + $"{frameworkName}.{OSArchMoniker}";
+                if (Directory.Exists(frameworkPath)) return getLibPath(frameworkPath);
+            }
+
+            return null;
         }
 
         public static Dictionary<string, string> GetMacros(string projectFile)
@@ -1455,8 +1461,8 @@ namespace BFlatA
             Console.WriteLine($"{"",-COL_WIDTH}Unlike RSP file, each line in BFA file may contain multiple args with macros enabled(listed at foot).");
             Console.WriteLine($"{"",-COL_WIDTH}BFAs can be used as project-specific build profile, somewhat equivalent to .csproj file.");
             Console.WriteLine($"{"",-COL_WIDTH}If any arg duplicated, valid latters will overwrite, except for <root .csproj file>.{NL}");
-            Console.WriteLine("  -pra|--prebuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to execute before build.(Can be multiple).{NL}");
-            Console.WriteLine("  -poa|--postbuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to execute after build.(Can be multiple).{NL}");
+            Console.WriteLine("  -pra|--prebuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to execute before build.(Multiple allowed).{NL}");
+            Console.WriteLine("  -poa|--postbuild:<cmd or path to executable>".PadRight(COL_WIDTH) + $"One command line to execute after build.(Multiple allowed).{NL}");
             Console.WriteLine($"{NL}Shared Options with BFlat:{NL}");
             Console.WriteLine("  --target:<Exe|Shared|WinExe>".PadRight(COL_WIDTH) + $"Build Target.Default:<BFlat default>{NL}");
             Console.WriteLine("  --os <Windows|Linux|Uefi>".PadRight(COL_WIDTH) + $"Build Target.Default:Windows.{NL}");
@@ -1777,28 +1783,31 @@ namespace BFlatA
                                             buildProc.WaitForExit();
                                             Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
 
-                                            if (buildProc.ExitCode == 0 && UseLinker)  //invoke linker
+                                            if (buildProc.ExitCode == 0)  //invoke linker
                                             {
-                                                var objFileName = projectName + ".obj";
-                                                if (File.Exists(objFileName))
+                                                if (UseLinker)
                                                 {
-                                                    if (WriteScript($"{objFileName}{NL}" + string.Join(NL, linkerArgs), "link.rsp") == 0)
+                                                    var objFileName = projectName + ".obj";
+                                                    if (File.Exists(objFileName))
                                                     {
-                                                        buildProc = Process.Start(Linker, "@link.rsp");
-                                                        buildProc?.WaitForExit();
-                                                        Console.WriteLine($"Linker exit code:{buildProc.ExitCode}");
-
-                                                        if (buildProc.ExitCode == 0 && PostBuildActions.Any())
+                                                        if (WriteScript($"{objFileName}{NL}" + string.Join(NL, linkerArgs), "link.rsp") == 0)
                                                         {
-                                                            Console.WriteLine($"{NL}--POSTBUILD-ACTIONS------------------");
-                                                            actionExitCode = ExecuteCmds("Postbuild actions", PostBuildActions);
-                                                            if (actionExitCode != 0) Console.WriteLine($"Postbuild failure!!"); return -0xA;
+                                                            buildProc = Process.Start(Linker, "@link.rsp");
+                                                            buildProc?.WaitForExit();
+                                                            Console.WriteLine($"Linker exit code:{buildProc.ExitCode}");
+
+                                                            if (buildProc.ExitCode == 0 && PostBuildActions.Any())
+                                                            {
+                                                                Console.WriteLine($"{NL}--POSTBUILD-ACTIONS------------------");
+                                                                actionExitCode = ExecuteCmds("Postbuild actions", PostBuildActions);
+                                                                if (actionExitCode != 0) Console.WriteLine($"Postbuild failure!!"); return -0xA;
+                                                            }
+                                                            else Console.WriteLine($"Linker failure!!"); return -0x9;
                                                         }
-                                                        else Console.WriteLine($"Linker failure!!"); return -0x9;
+                                                        else Console.WriteLine($"Error writing link.rsp!!"); return -0x8;
                                                     }
-                                                    else Console.WriteLine($"Error writing link.rsp!!"); return -0x8;
-                                                }
-                                                else Console.WriteLine($"Object file not exists:{objFileName}"); return -0x7;
+                                                    else Console.WriteLine($"Object file not exists:{objFileName}"); return -0x7;
+                                                }//UseLinker
                                             }
                                             else Console.WriteLine($"Compiler failure!!"); return -0x6;
                                         }
