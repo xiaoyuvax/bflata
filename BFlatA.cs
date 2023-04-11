@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.5.0.3")]
+[assembly: AssemblyVersion("1.5.0.4")]
 
 namespace BFlatA
 {
