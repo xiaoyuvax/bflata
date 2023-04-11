@@ -1134,7 +1134,10 @@ namespace BFlatA
                         var noStandardLibraries = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "nostandardlibraries")?.Value;
                         var ilcSystemModule = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "ilcsystemmodule")?.Value ?? "";
                         var optimize = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "optimize")?.Value ?? "";
-                        if (nostdlib?.ToLower() == "true" || noStandardLibraries?.ToLower() == "true" || !string.IsNullOrEmpty(ilcSystemModule)) restArgs.Add("--stdlib:None");
+                        if (nostdlib?.ToLower() == "true" || noStandardLibraries?.ToLower() == "true" || !string.IsNullOrEmpty(ilcSystemModule))
+                        {
+                            if (!restArgs.Any(i => i[..8].ToLower() == "--stdlib")) restArgs.Add("--stdlib:None");
+                        }
 
                         if (!string.IsNullOrEmpty(ilcOptimizationPreference))
                         {
@@ -1153,9 +1156,7 @@ namespace BFlatA
                                     break;
 
                                 default:
-                                    restArgs.Remove(existingOptFlag);
                                     if (optimize.ToLower() == "true") goto case "speed";
-                                    restArgs.Add("-O0");
                                     break;
                             }
                         }
@@ -1184,10 +1185,11 @@ namespace BFlatA
                             AddElement2List(ig.OfInclude("NativeLibrary"), nativeLibBook, "NativeLib");
                             AddResources2Dict(ig.OfInclude("EmbeddedResource"), resBook, "EmbeddedResource", useAbsolutePath: false);
 
+
+                            #region Compatible with earlier version of .csproj file(not tested), may not be supported in the future. 
+
                             AddReferences2Dict(ig.OfInclude("Reference"), referenceBook, "ManagedAssembly");
                             AddReferences2Dict(ig.OfInclude("NativeReference"), nativeReferenceBook, "NativeReference");
-
-                            #region Compatible with earlier version of .csproj file(not tested)
 
                             //Managed Assemblies, ToDo:Test
                             foreach (var r in referenceBook)
@@ -1337,7 +1339,11 @@ namespace BFlatA
                             }
                             else if (err != 0) return err;
                         }
-                        else Console.WriteLine($"Warnning:Project properties are not compatible with the target:{target}, {projectFile}!!! ");
+                        else
+                        {
+                            Console.WriteLine($"Warnning:Project properties are not compatible with the target:{target}, {projectFile}!!! ");
+                            return -0x13;
+                        }
 
                         ParsedProjectPaths.Add(projectFile);
 
