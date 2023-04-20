@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.5.0.5")]
+[assembly: AssemblyVersion("1.5.0.6")]
 
 namespace BFlatA
 {
@@ -182,9 +182,9 @@ namespace BFlatA
         public static string TargetFx = null;
         public static bool UseExclu = false;
         public static bool UseVerbose = false;
-        private const string ASPNETCORE_APP = "microsoft.aspnetcore.app.runtime";
-        private const string NETCORE_APP = "microsoft.netcore.app.runtime";
-        private const string WINDESKTOP_APP = "microsoft.windowsdesktop.app.runtime";
+        private const string ASPNETCORE_APP = "microsoft.aspnetcore.app";
+        private const string NETCORE_APP = "microsoft.netcore.app";
+        private const string WINDESKTOP_APP = "microsoft.windowsdesktop.app";
         public static string LibPathSegment { get; } = PathSep + "lib" + PathSep;
         public static string OSArchMoniker { get; } = $"{GetOSMoniker(OS)}-{Architecture}";
         public static string RootProjectName => Path.GetFileNameWithoutExtension(RootProjectFile);
@@ -569,7 +569,7 @@ namespace BFlatA
 
         public static string GetExt(string outputType = "Exe") => outputType switch
         {
-            "Exe" => "",
+            "Exe" => IsLinux ? "" : ".exe",
             "WinExe" => ".exe",
             _ => ".dll"
         };
@@ -584,15 +584,18 @@ namespace BFlatA
 
         public static string GetFrameworkPath(string frameworkName)
         {
-            string getLibPath(string fxPath) => Path.GetFullPath(Directory.GetDirectories(fxPath).OrderDescending()
-                       .FirstOrDefault(i => i.Contains($"{PathSep}{TargetFx.Replace("net", "")}")) + RuntimesPathSegment + OSArchMoniker + LibPathSegment + TargetFx);
+            static string getLibPath(string fxPath) => Directory.Exists(fxPath) ?
+                Path.GetFullPath(Directory.GetDirectories(fxPath).OrderDescending()
+                .FirstOrDefault(i => i.Contains($"{PathSep}{TargetFx.Replace("net", "")}")) + RuntimesPathSegment + OSArchMoniker + LibPathSegment + TargetFx)
+                : null;
 
             if (!string.IsNullOrEmpty(PackageRoot))
             {
-                string frameworkPath = PackageRoot + PathSep + $"{frameworkName}.{OSArchMoniker}";
-                if (Directory.Exists(frameworkPath)) return getLibPath(frameworkPath);
+                return getLibPath(Path.GetFullPath(PackageRoot + PathSep + $"{frameworkName}.runtime.{OSArchMoniker}"))
+                    ?? getLibPath(Path.GetFullPath(PackageRoot + PathSep + $"{frameworkName}.{OSArchMoniker}"))
+                    ?? getLibPath(Directory.GetDirectories(PackageRoot, $"{frameworkName}.runtime.{OSArchMoniker}", SearchOption.AllDirectories).FirstOrDefault())
+                    ?? getLibPath(Directory.GetDirectories(PackageRoot, $"{frameworkName}.{OSArchMoniker}", SearchOption.AllDirectories).FirstOrDefault());
             }
-
             return null;
         }
 
@@ -652,10 +655,10 @@ namespace BFlatA
             {
                 using var st = new StreamReader(File.OpenRead(fileName));
                 Console.Write($"Items loaded:");
-                var lastCursorPost = Console.GetCursorPosition();
+                var (Left, Top) = Console.GetCursorPosition();
                 while (!st.EndOfStream)
                 {
-                    Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
+                    Console.SetCursorPosition(Left, Top);
 
                     var line = st.ReadLine();
                     if (!string.IsNullOrEmpty(line) && Directory.Exists(line))
@@ -675,7 +678,7 @@ namespace BFlatA
 
         public static void LoadExclu(string excluFile)
         {
-            int count = 0;
+            int count;
             List<string> exclude = new();
             try
             {
@@ -883,7 +886,7 @@ namespace BFlatA
             //Parse input args
             List<string> restArgs = new(args);
             List<string> bfaFiles = new();
-            if (args.Count() == 0 || args.Contains("-?") || args.Contains("/?") || args.Contains("-h") || args.Contains("--help"))
+            if (!args.Any() || args.Contains("-?") || args.Contains("/?") || args.Contains("-h") || args.Contains("--help"))
             {
                 ShowHelp();
                 restArgs.Clear();
@@ -1429,7 +1432,7 @@ namespace BFlatA
             Console.WriteLine($"Caching Nuget packages from path:{packageRoot} ...");
 
             int pathCount = 0;
-            var lastCursorPost = Console.GetCursorPosition();
+            var (Left, Top) = Console.GetCursorPosition();
             bool dontCacheLib = CacheLib.Any();
             bool dontCacheNuspec = CacheNuspec.Any();
             try
@@ -1438,7 +1441,7 @@ namespace BFlatA
                     foreach (var i in Directory.GetDirectories(packageRoot, "*", SearchOption.AllDirectories).DoExclude())
                     {
                         pathCount++;
-                        Console.SetCursorPosition(lastCursorPost.Left, lastCursorPost.Top);
+                        Console.SetCursorPosition(Left, Top);
                         Console.Write($"Libs found:{CacheLib.Count}/Nuspec found:{CacheNuspec.Count}/Folders searched:{pathCount}");
                         var splitted = i.Split(PathSep, StringSplitOptions.RemoveEmptyEntries);
 
@@ -1689,7 +1692,7 @@ namespace BFlatA
             return 0;
         }
 
-        private static int ExecuteCmds(string title, List<string> cmd)
+        public static int ExecuteCmds(string title, List<string> cmd)
         {
             Process buildProc = null;
             int exitCode = 0;
@@ -1733,21 +1736,18 @@ namespace BFlatA
 
             if (restArgs == null) return -1;
             else if (restArgs.Contains("?")) return 0;
-
-            //echo args.
-            string padLine(string key, string value) => key.PadRight(COL_WIDTH_FOR_ARGS) + value;
             Console.WriteLine($"{NL}--ARGS--------------------------------");
-            Console.WriteLine(padLine("Action", $":{Action}"));
-            Console.WriteLine(padLine("BuildMode", $":{BuildMode}"));
-            Console.WriteLine(padLine("DepositDep", $":{(DepositLib ? "On" : "Off")}"));
-            Console.WriteLine(padLine("Target", $":{OutputType}"));
-            Console.WriteLine(padLine("TargetOS", $":{OS}"));
-            Console.WriteLine(padLine("Output", $":{OutputFile ?? "<Default>"}"));
-            Console.WriteLine(padLine("TargetFx", $":{TargetFx}"));
-            Console.WriteLine(padLine("PackageRoot", $":{PackageRoot ?? "<N/A>"}"));
-            Console.WriteLine(padLine("Home", $":{MSBuildStartupDirectory}"));
-            if (BFAFiles.Count > 0) Console.WriteLine(padLine("BFA Includes", $":{BFAFiles.Count}"));
-            Console.WriteLine(padLine("Args for BFlat", $":{(restArgs.Count > 20 ? string.Join(' ', restArgs.ToArray()[..20]) + " ..." : string.Join(' ', restArgs))}"));
+            Console.WriteLine(PadLine("Action", $":{Action}"));
+            Console.WriteLine(PadLine("BuildMode", $":{BuildMode}"));
+            Console.WriteLine(PadLine("DepositDep", $":{(DepositLib ? "On" : "Off")}"));
+            Console.WriteLine(PadLine("Target", $":{OutputType}"));
+            Console.WriteLine(PadLine("TargetOS", $":{OS}"));
+            Console.WriteLine(PadLine("Output", $":{OutputFile ?? "<Default>"}"));
+            Console.WriteLine(PadLine("TargetFx", $":{TargetFx}"));
+            Console.WriteLine(PadLine("PackageRoot", $":{PackageRoot ?? "<N/A>"}"));
+            Console.WriteLine(PadLine("Home", $":{MSBuildStartupDirectory}"));
+            if (BFAFiles.Count > 0) Console.WriteLine(PadLine("BFA Includes", $":{BFAFiles.Count}"));
+            Console.WriteLine(PadLine("Args for BFlat", $":{(restArgs.Count > 20 ? string.Join(' ', restArgs.ToArray()[..20]) + " ..." : string.Join(' ', restArgs))}"));
             Console.WriteLine();
 
             if (!string.IsNullOrEmpty(RootProjectFile))
@@ -1898,5 +1898,7 @@ namespace BFlatA
 
             return 0;
         }
+
+        public static string PadLine(string key, string value) => key.PadRight(COL_WIDTH_FOR_ARGS) + value;
     }
 }
