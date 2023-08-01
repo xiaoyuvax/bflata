@@ -225,7 +225,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 
 ## 示例项目
 
-- [欢迎推荐可以通过BFlatA构建的项目...[发邮件](mailto:xiaoyu.vax@qq.com) ]
+- [欢迎推荐可以通过BFlatA构建的项目，在问题板留言给我吧 ]
 
 		
 ### [ObjectPoolReuseCaseDemo](https://github.com/xiaoyuvax/ObjectPoolReuseCaseDemo) 
