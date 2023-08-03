@@ -154,7 +154,7 @@ Note: a single .rsp file itself does not support building project Tree, instead 
 
 	Examples:
 
-	  bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx=net7.0 -bm:treed
+	  bflata xxxx.csproj -pr:C:\Users\username\.nuget\packages -fx:net7.0 -bm:treed
 
 	  bflata build xxxx.csproj -pr:C:\Users\username\.nuget\packages --arch x64 --ldflags /libpath:"C:\Progra~1\Micros~3\2022\Enterprise\VC\Tools\MSVC\14.35.32215\lib\x64" --ldflags "/fixed -base:0x10000000 --subsystem:native /entry:Entry /INCREMENTAL:NO"
 
