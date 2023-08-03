@@ -1546,7 +1546,7 @@ namespace BFlatA
             Console.WriteLine("  Do make sure <ImplicitUsings> switched off in .csproj file and all namespaces properly imported.");
             Console.WriteLine("  Once '<moniker>.exclu' file is saved, it can be used for any later build, and a 'packages.exclu' is always loaded and can be used to store extra shared exclus, where 'exclu' is the short for 'Excluded Packages'.");
             Console.WriteLine($"{NL}Examples:{NL}");
-            Console.WriteLine($"  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx=net7.0 -bm:treed{NL}");
+            Console.WriteLine($"  bflata xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages -fx:net7.0 -bm:treed{NL}");
             Console.WriteLine($"  bflata build xxxx.csproj -pr:C:\\Users\\username\\.nuget\\packages --arch x64 --ldflags /libpath:\"C:\\Progra~1\\Micros~3\\2022\\Enterprise\\VC\\Tools\\MSVC\\14.35.32215\\lib\\x64\" --ldflags \"/fixed -base:0x10000000 --subsystem:native /entry:Entry /INCREMENTAL:NO\"{NL}");
 
             Console.WriteLine($"{NL}Macors defined:{NL}");
