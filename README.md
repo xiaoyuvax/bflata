@@ -186,10 +186,16 @@ of course BFlat is prefered to build the program entirely to native code(without
 ## BFA file
 - BFA file(.bfa) contains any valid args for BFlatA, including `build` and `<root csproj file>`, each BFA file can be specified by a single `-inc:<filename>`. Therefore, for a project, you can use `bflata -inc:myproject.bfa` to build the project with all args written in that myproject.bfa file. You can also store some shared args in shared BFA file, such as those longer linker args(`--ldflags:...`) and reference them when build different projects, e.g. `bflata build -inc:MyProject.bfa -inc:SharedArgSet1.bfa`.
 - Unlike RSP file, each line in BFA file may contain multiple options(option is a type of args) with macros enabled, but not for barehead args such as the "build" verb, <project path>, and these option strings are to be parsed by bflata and finally merged in the output build script. Barehead args(which has no option cap) must be written in a single line each. And so far the VERBs and the root .csproj file must present at the first two lines(comment lines skipped) in BFA file.
-- Therefore, BFAs looks and can be used like project-specific build profile, or even somewhat equivalent to a .csproj file, you can use them flexiblyă€‚
-- If any arg duplicated, valid latter occurrences will overwrite the formers, except for the <root csproj file> arg, which must present in the 1st or 2nd pos of the arg list.
-- Like RSP file, lines start with "#" in BFA file is considered comments.
-- You can see macros supported by using help options, which are mostly MSBuild compatible.
+- Therefore, BFAs looks and can be used like project-specific build profile, or even somewhat equivalent to a .csproj file, you can use them flexibly‚
+- If any arg duplicated, valid latter occurrences will overwrite the formers, except for `<root csproj file>` , which must present in the 1st or 2nd pos of the arg list, just following the `VERB`.
+- Like RSP file, lines start with "#" in BFA file are considered comments.
+- You can see macros supported by using '-?' option, which are mostly MSBuild compatible, usage shown in example below.
+- Double quotes can be used as `"''"` way, where whatever inside a single/double quote would be considered as a whole despite presence of spaces, and the double quotes will be removed and the single quotes will be promoted to double quotes when pass to external program(such as the shell), as shown in example below:
+
+		# Postbuild actions:
+		-poa:cmd.exe /c copy /b loader.o + moos.exe "$(MSBuildStartupDirectory)\Tools\grub2\boot\kernel.bin"
+		-poa:"'$(MSBuildStartupDirectory)\Tools\mkisofs.exe' -relaxed-filenames -J -R -o MOOS.iso -b boot/grub/i386-pc/eltorito.img -no-emul-boot -boot-load-size 4 -boot-info-table  '$(MSBuildStartupDirectory)\Tools\grub2'"
+		-poa:"'D:\Program Files (x86)\VMware\VMware Player\vmplayer.exe' '$(MSBuildStartupDirectory)\Tools\VMWare\MOOS\MOOS.flat.vmx'"
 
 ## Known issues:
 
