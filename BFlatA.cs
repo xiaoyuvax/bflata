@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.5.0.6")]
+[assembly: AssemblyVersion("1.5.0.7")]
 
 namespace BFlatA
 {
@@ -1113,7 +1113,7 @@ namespace BFlatA
                     catch (Exception ex)
                     {
                         Console.WriteLine(ex.Message);
-                        return -0x13;
+                        return -0x15;
                     }
 
                     //Start Analysis of csproj file.
@@ -1122,7 +1122,7 @@ namespace BFlatA
                     if (pj != null && pj.Name.LocalName.ToLower() == "project")
                     {
                         //Flatten all item groups
-                        var ig = pj.Descendants().Where(i => i.Name.LocalName == "ItemGroup").SelectMany(i => i.Elements());
+                        var ig = pj.Descendants("ItemGroup").SelectMany(i => i.Elements());
                         var imports = pj.Descendants("Import");
 
                         //Flatten all property groups
@@ -1141,11 +1141,11 @@ namespace BFlatA
                         defineConstants.AddRange(pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "defineconstants")?.Value?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>());
 
                         //Compiler Args
-                        var ilcOptimizationPreference = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "ilcoptimizationpreference")?.Value ?? "";
+                        var ilcOptimizationPreference = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "ilcoptimizationpreference")?.Value;
                         var nostdlib = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "nostdlib")?.Value;
                         var noStandardLibraries = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "nostandardlibraries")?.Value;
-                        var ilcSystemModule = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "ilcsystemmodule")?.Value ?? "";
-                        var optimize = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "optimize")?.Value ?? "";
+                        var ilcSystemModule = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "ilcsystemmodule")?.Value;
+                        var optimize = pg.FirstOrDefault(i => i.Name.LocalName.ToLower() == "optimize")?.Value;
                         if (nostdlib?.ToLower() == "true" || noStandardLibraries?.ToLower() == "true" || !string.IsNullOrEmpty(ilcSystemModule))
                         {
                             if (!restArgs.Any(i => i[..8].ToLower() == "--stdlib")) restArgs.Add("--stdlib:None");
@@ -1168,7 +1168,7 @@ namespace BFlatA
                                     break;
 
                                 default:
-                                    if (optimize.ToLower() == "true") goto case "speed";
+                                    if (optimize?.ToLower() == "true") goto case "speed";
                                     break;
                             }
                         }
@@ -1185,10 +1185,10 @@ namespace BFlatA
                         if (!string.IsNullOrEmpty(baseAddress)) linkerArgs.Add((IsLinux ? "-base:" : "/BASE:") + baseAddress);
                         linkerArgs.Add((IsLinux ? "-incremental:" : "/INCREMENTAL:") + (incremental ?? "no"));
 
-                        //If project setting is not compatible with specified framework, then quit.
                         bool isStandardLib = targets?.Any(i => i.StartsWith("netstandard")) == true;
-
                         bool hasTarget = targets?.Any(i => i.Contains(target)) == true;
+
+                        //If project setting is not compatible with specified framework, then quit.
                         if (hasTarget || isStandardLib)
                         {
                             AddElement2List(ig.OfRemove("Compile"), removeBook, "Code Exclude", "Remove");
@@ -1352,7 +1352,7 @@ namespace BFlatA
                         }
                         else
                         {
-                            Console.WriteLine($"Warnning:Project properties are not compatible with the target:{target}, {projectFile}!!! ");
+                            Console.WriteLine($"Warning:Project properties are not compatible with the target:{target}, {projectFile}!!! ");
                             return -0x13;
                         }
 
@@ -1417,7 +1417,7 @@ namespace BFlatA
             }
             else
             {
-                if (UseVerbose) Console.WriteLine($"Warning:project already parsed, ignoring it..." + projectFile);
+                if (UseVerbose) Console.WriteLine($"Warning:project already parsed, ignoring it:" + projectFile);
             }
 
             return 0;
