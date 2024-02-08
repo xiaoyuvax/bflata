@@ -27,6 +27,8 @@ would produce a `myproject.flat` folder, into which all code files, libs, resour
   BFlatA is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
   
 ## Update Logs   
+Update 23-03-30 (V1.5.0.8)
+- Matching a version range of packages is allowed.
 
 Update 23-03-30 (V1.4.3.0)
 - `<NoStdLib>` flag bug fixed.
@@ -199,6 +201,7 @@ of course BFlat is prefered to build the program entirely to native code(without
 
 ## Known issues:
 
+- Analyzer is not supported, you may see lib missing errors if your project is working with analyzers, you may try to add dependencies manually as described in https://github.com/xiaoyuvax/bflata/issues/7
 - The "--buildmode:tree" option builds by reference hierachy, but the referenced projects are actually built with 'bflat build-il' option, which produces IL assemblies rather than native code, and only the root project is to be built in native code. This is because so far BFlat is not known to produce native .dll lib which can be referenced with -r option (if it will do so someday, or known to be able to do so, the TREE mode would actually work for native code then). Note: TREE mode is useful dealing with the scenarios that Nuget package uses dependencies whose versions are not compatible with the parent project (in FLAT mode, as would cause errors), for the lib is compiled independently. Moreover with the `-dd`(Deposit Dependency) option, parent project who indirectly use child project's dependencies might also be solved. 
 - The "--buildmode:flat" option (default, if -bm not served) generates flattened build script which incorproate all code files, package references and resources of all referenced .csproj files into one, but this solution cannot solve the issue of version incompatibility of dependencies from different projects, especially secondary dependencies required by Nuget packages. Version inconsistency of projects can be eliminated by making all projects reference the same packages of the same version, but secondary dependencies among precompiled packages are various and not changeable	
 - Winform application(WPF too) can be built to native but possibly too problematic to run. This is possibly becuase dotnet assemblies supporting Winform(or WPF) require managed metadata be well preserved which will be trimmed by native compiler (this is same problem for NativeAOT). 
