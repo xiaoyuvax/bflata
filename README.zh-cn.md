@@ -31,6 +31,8 @@ BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用
 BFlatA源于BFlat的这个问题：https://github.com/bflattened/bflat/issues/61
 
 ## 更新日志 
+更新 23-03-30 (V1.5.0.8)
+- 允许匹配一个版本范围的包。
 
 更新 23-03-30 (V1.4.3.0)
 - `<NoStdLib>` 标志处理bug.
@@ -213,7 +215,7 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 - 您可以使用帮助选项查看支持的宏，它们大多与MSBuild兼容。
 
 ## 已知问题：
-
+- BFlatA不支持分析Analyzer（分析器）相关的依赖路径，如果你的工程使用分析器，请手动添加依赖。详情和讨论见：https://github.com/xiaoyuvax/bflata/issues/7
 - "--buildmode:tree" 选项按照引用层次结构构建，但是被引用的项目实际上使用 'bflat build-il' 选项构建，这会生成 IL 程序集而不是本机代码，只有根项目才会以本机代码构建。这是因为目前还不知道 BFlat 是否能够生成可通过 -r 选项引用的本机 .dll 库（如果它有一天能够这样做，或者已知能够做到，那么 TREE 模式实际上就可以用于本机代码）。注意：TREE 模式在处理 Nuget 包使用与父项目不兼容的依赖项的情况时非常有用（在 FLAT 模式下会导致错误），因为库是独立编译的。此外，使用 -dd（Deposit Dependency）选项的父项间接使用子项目依赖项的父项目也可能得到解决。
 - "--buildmode:flat" 选项（如果未提供"-bm"选项）会生成一个扁平的构建脚本，将所有引用的.csproj文件的所有代码文件、包引用和资源合并到一个脚本中，但这种解决方案无法解决来自不同项目的依赖项版本不兼容的问题，特别是Nuget包所需的二级依赖关系。可以通过使所有项目引用相同版本的相同软件包来消除项目之间的版本不一致性，但预编译包之间的二级依赖关系各不相同且无法更改。
 - 尽管当前版本支持使用 --resgen 选项调用 resgen.exe 编译 .resx 文件为可嵌入二进制(.resources)，并在构建时从临时目录引用它们，资源的命名空间会采用相应的代码文件，例如 myForm.cs 用于 myForm.resx，Resources.Designer.cs 用于 Resources.resx，但仍然会出现以下类似的错误消息。这可能是由于 bflat 的内部设置引起的，可以在此处报告并找到解决方案：https://github.com/bflattened/bflat/issues/92
