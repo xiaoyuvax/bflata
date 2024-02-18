@@ -27,7 +27,7 @@ would produce a `myproject.flat` folder, into which all code files, libs, resour
   BFlatA is relevent to an issue from bflat: https://github.com/bflattened/bflat/issues/61
   
 ## Update Logs   
-Update 23-03-30 (V1.5.0.8)
+Update 24-02-08 (V1.5.0.8)
 - Matching a version range of packages is allowed.
 
 Update 23-03-30 (V1.4.3.0)
