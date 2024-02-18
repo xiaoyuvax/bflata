@@ -31,7 +31,7 @@ BFlatA是BFlat的包装器、构建脚本生成器和项目平坦化工具，用
 BFlatA源于BFlat的这个问题：https://github.com/bflattened/bflat/issues/61
 
 ## 更新日志 
-更新 23-03-30 (V1.5.0.8)
+更新 23-02-08 (V1.5.0.8)
 - 允许匹配一个版本范围的包。
 
 更新 23-03-30 (V1.4.3.0)
