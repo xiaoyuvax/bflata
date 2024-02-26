@@ -332,4 +332,4 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 ![image](https://user-images.githubusercontent.com/6511226/228498298-89ed4f3c-2aa2-4a4d-84ad-13599483575b.png)
 
 ### 其他已经成功通过bflata编译的项目
-[MarkovJunior](https://github.com/mxgmn/MarkovJunior)  `bflata build ...\MarkovJunior\MarkovJunior.csproj -pr:C:\Users\<username>\.nuget\packages -fx:net7.0 -h:..\MarkovJunior`
+- [MarkovJunior](https://github.com/mxgmn/MarkovJunior) 相关问题：https://github.com/xiaoyuvax/bflata/issues/9 `bflata build ...\MarkovJunior\MarkovJunior.csproj -pr:C:\Users\<username>\.nuget\packages -fx:net7.0 -h:..\MarkovJunior`  
