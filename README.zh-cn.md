@@ -331,3 +331,5 @@ BFlatA 引入了一个名为 "Exclu" 的机制，在脚本中排除依赖包。�
 用BFlatA + BFlat工具链来编译MOOS相对来说是一个更复杂的情况，因为如上述连接中所述BFlat自带的链接器不能用需要换用MSVC链接器。但这个示例演示了BFlatA如何灵活地处理一些不常见的情况.
 ![image](https://user-images.githubusercontent.com/6511226/228498298-89ed4f3c-2aa2-4a4d-84ad-13599483575b.png)
 
+### 其他已经成功通过bflata编译的项目
+[MarkovJunior](https://github.com/mxgmn/MarkovJunior)  `bflata build ...\MarkovJunior\MarkovJunior.csproj -pr:C:\Users\<username>\.nuget\packages -fx:net7.0 -h:..\MarkovJunior`
