@@ -316,4 +316,4 @@ MOOS is a relatively more complicated example to build through BFlatA + BFlat to
 
 
 ### Other projects that have been verified to be successfully built by BFlatA
-[MarkovJunior](https://github.com/mxgmn/MarkovJunior)  `bflata build ...\MarkovJunior\MarkovJunior.csproj -pr:C:\Users\<username>\.nuget\packages -fx:net7.0 -h:..\MarkovJunior`
+[MarkovJunior](https://github.com/mxgmn/MarkovJunior)  Issue:https://github.com/xiaoyuvax/bflata/issues/9  `bflata build ...\MarkovJunior\MarkovJunior.csproj -pr:C:\Users\<username>\.nuget\packages -fx:net7.0 -h:..\MarkovJunior`
