@@ -313,3 +313,7 @@ Check out: [How to build MOOS with BFlatA](https://github.com/xiaoyuvax/MOOS/blo
 	
 MOOS is a relatively more complicated example to build through BFlatA + BFlat toolchian, in which the linker comes with BFlat is replaced with MSVC linker, and it demonstrates how BFlatA can cope with some unusual condition flexibly.
 ![image](https://user-images.githubusercontent.com/6511226/228498471-0baf5415-b000-45f8-9c20-b35b3f634089.png)
+
+
+### Other projects that have been verified to be successfully built by BFlatA
+[MarkovJunior](https://github.com/mxgmn/MarkovJunior)  `bflata build ...\MarkovJunior\MarkovJunior.csproj -pr:C:\Users\<username>\.nuget\packages -fx:net7.0 -h:..\MarkovJunior`
