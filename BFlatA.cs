@@ -11,7 +11,6 @@ using System.Xml.Linq;
 
 [assembly: AssemblyVersion("1.5.0.8"), AssemblyProduct("BFlatA"), AssemblyDescription("https://github.com/xiaoyuvax/bflata")]
 
-
 namespace BFlatA
 {
     public enum BuildMode
@@ -36,42 +35,6 @@ namespace BFlatA
         public static IEnumerable<XElement> OfInclude(this IEnumerable<XElement> r, string elementName) => r.Where(i => i.Name.LocalName.Equals(elementName, StringComparison.InvariantCultureIgnoreCase) && i.Attribute("Include") != null);
 
         public static IEnumerable<XElement> OfRemove(this IEnumerable<XElement> r, string elementName) => r.Where(i => i.Name.LocalName.Equals(elementName, StringComparison.InvariantCultureIgnoreCase) && i.Attribute("Remove") != null);
-    }
-
-    public class ArgDefinition
-    {
-        public string Description;
-        public string Group;
-        public bool IsCaseSensitive;
-        public bool IsDirectory;
-        public bool IsFile;
-        public bool IsFlag;
-        public bool IsOption;
-        public bool IsOptional;
-        public bool IsOther;
-        public string[] LongName;
-        public string[] ShortName;
-        public List<string> Value;
-
-        public ArgDefinition(string[] shortName = null, string[] longName = null, string description = null, bool isFlag = false,
-                             bool isOptional = true, bool isOption = false, bool isOther = false, bool isFile = false,
-                             bool isDirectory = false, bool isCaseSensitive = false, string group = null,
-                             string defaultValue = null)
-        {
-            IsCaseSensitive = isCaseSensitive;
-            IsFlag = isFlag;
-            IsOption = isOption;
-            IsOther = isOther;
-            ShortName = shortName;
-            LongName = longName;
-            Description = description;
-            Description = description;
-            Value = [defaultValue];
-            Group = group;
-            IsFile = isFile;
-            IsDirectory = isDirectory;
-            IsOptional = isOptional;
-        }
     }
 
     public sealed class BflataEqualityComparer(bool caseSensitive = false, bool argEquality = false) : EqualityComparer<string>
@@ -143,14 +106,25 @@ namespace BFlatA
         public static Verb Action = Verb.Script;
         public static string Architecture = "x64";  //better be default to x64
 
-        /// <summary>
-        /// TODO:Dicitonary storing argument definitions...
-        /// </summary>
-        public static Dictionary<string, ArgDefinition> ArgBook = new()
-        {
-            { "Verb",new ArgDefinition(null,["build" ,"build-il","flatten","flatten-all"],"",true,false,defaultValue:"")},
-            { "RootProject",new ArgDefinition(isOptional: false,isFile:true)},
-            { "PackageRoot", new ArgDefinition(["-pr"],["--packageroot"],"",isOption:true, isDirectory:true)},
+        public static Dictionary<string, ArgDefinition> ArgBook = new()        {
+        { "Verb", new ArgDefinition(shortName: null, longName: ["build", "build-il", "flatten", "flatten-all"], description: "Verbs", isFlag: true, defaultValue: "") },
+        { "RootProject", new ArgDefinition(isOptional: false, isFile: true) },
+        { "PackageRoot", new ArgDefinition(shortName: ["-pr"], longName: ["--packageroot"], description: "", isOption: true, isDirectory: true, defaultValue: "") },
+        { "Home", new ArgDefinition(shortName: ["-h"], longName: ["--home"], description: "指定MSBuild启动目录", isOption: true, isDirectory: true, defaultValue: "") },
+        { "ResGen", new ArgDefinition(shortName: [], longName: ["--resgen"], description: "指定ResGen路径", isOption: true, isFile: true, defaultValue: "") },
+        { "Linker", new ArgDefinition(shortName: [], longName: ["--linker"], description: "指定链接器路径", isOption: true, isFile: true, defaultValue: "") },
+        { "Include", new ArgDefinition(shortName: ["-inc"], longName: ["--include"], description: "包含额外的BFA文件", isOption: true, isFile: true, defaultValue: "") },
+        { "PreBuildActions", new ArgDefinition(shortName: ["-pra"], longName: ["--prebuild"], description: "预构建动作", isOption: true, defaultValue: "") },
+        { "PostBuildActions", new ArgDefinition(shortName: ["-poa"], longName: ["--postbuild"], description: "后构建动作", isOption: true, defaultValue: "") },
+        { "BuildMode", new ArgDefinition(shortName: ["-bm"], longName: ["--buildmode"], description: "构建模式", isOption: true, defaultValue: "") },
+        { "Target", new ArgDefinition(shortName: [], longName: ["--target"], description: "输出类型", isOption: true, defaultValue: "") },
+        { "Framework", new ArgDefinition(shortName: ["-fx"], longName: ["--framework"], description: "目标框架", isOption: true, defaultValue: "") },
+        { "Architecture", new ArgDefinition(shortName: [], longName: ["--arch"], description: "体系结构", isOption: true, defaultValue: "") },
+        { "OS", new ArgDefinition(shortName: [], longName: ["--os"], description: "操作系统", isOption: true, defaultValue: "") },
+        { "Output", new ArgDefinition(shortName: ["-o"], longName: ["--out"], description: "输出文件", isOption: true, defaultValue: "") },
+        { "Verbose", new ArgDefinition(shortName: ["--verbose"], longName: [], description: "启用详细输出", isFlag: true, defaultValue: "") },
+        { "ExcludeFx", new ArgDefinition(shortName: ["-xx"], longName: ["--exclufx"], description: "排除运行时路径", isOption: true, isDirectory: true, defaultValue: "") },
+        { "DepositLib", new ArgDefinition(shortName: ["-dd"], longName: ["--depdep"], description: "库部署标志", isFlag: true, defaultValue: "") },
         };
 
         public static BflataEqualityComparer ArgEqualityComparer = new(false, true);
@@ -159,6 +133,7 @@ namespace BFlatA
         public static List<string> CacheLib = [];
         public static List<string> CacheNuspec = [];
         public static bool DepositLib = false;
+        public static string[] HelpArgs = ["-?", "/?", "-h", "--help"];
         public static string[] LibExclu = [];
         public static string Linker = null;
         public static string MSBuildStartupDirectory = Directory.GetCurrentDirectory();
@@ -181,12 +156,14 @@ namespace BFlatA
         private const string ASPNETCORE_APP = "microsoft.aspnetcore.app";
         private const string NETCORE_APP = "microsoft.netcore.app";
         private const string WINDESKTOP_APP = "microsoft.windowsdesktop.app";
+        private const string BFA_FILE_EXT = ".bfa";
+
         public static string LibPathSegment { get; } = PathSep + "lib" + PathSep;
         public static string OSArchMoniker { get; } = $"{GetOSMoniker(OS)}-{Architecture}";
         public static string RootProjectName => Path.GetFileNameWithoutExtension(RootProjectFile);
         public static string RootProjectPath => Path.GetDirectoryName(RootProjectFile);
         public static string RuntimesPathSegment { get; } = PathSep + "runtimes" + PathSep;
-        public static bool UseBFA => RootProjectFile.ToLower().EndsWith(".bfa");
+        public static bool UseBFA => RootProjectFile.ToLower().EndsWith(BFA_FILE_EXT);
         public static bool UseBuild => Action == Verb.Build || Action == Verb.BuildIl;
         public static bool UseBuildIL => Action == Verb.BuildIl;
         public static bool UseFlatten => Action == Verb.Flatten || Action == Verb.FlattenAll;
@@ -211,7 +188,7 @@ namespace BFlatA
                 {
                     if (cmd.StartsWith(COMPILER))
                     {
-                        var paths = Environment.GetEnvironmentVariable("PATH").Split(IsLinux ? ':' : ';') ?? new[] { "./" };
+                        var paths = Environment.GetEnvironmentVariable("PATH").Split(IsLinux ? ':' : ';') ?? ["./"];
 
                         var compilerPath = paths.FirstOrDefault(i => File.Exists(i + PathSep + (IsLinux ? COMPILER : COMPILER + ".exe")));
                         if (Directory.Exists(compilerPath))
@@ -256,7 +233,7 @@ namespace BFlatA
                 var targetResourcesFileName = myNamespace + "." + Path.GetFileNameWithoutExtension(resxFile) + ".resources";
                 var tempDir = Directory.CreateTempSubdirectory().FullName;
                 var pathToRes = tempDir + PathSep + targetResourcesFileName;
-                Process.Start(ResGenPath, new[] { "/useSourcePath", resxFile, pathToRes }).WaitForExit();
+                Process.Start(ResGenPath, ["/useSourcePath", resxFile, pathToRes]).WaitForExit();
                 resBook.TryAdd(Path.GetFullPath(pathToRes), "");
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
@@ -546,7 +523,7 @@ namespace BFlatA
 
         public static IEnumerable<string> GetAbsPaths(string path, string basePath)
         {
-            if (string.IsNullOrEmpty(path)) return Array.Empty<string>();
+            if (string.IsNullOrEmpty(path)) return [];
 
             string fullPath = Path.GetFullPath(ToSysPathSep(path), basePath);
             string pattern = Path.GetFileName(fullPath);
@@ -562,7 +539,7 @@ namespace BFlatA
                 catch (Exception ex) { Console.WriteLine(ex.Message); }
                 return fileLst;
             }
-            else return new[] { fullPath };
+            else return [fullPath];
         }
 
         public static List<string> GetCodeFiles(string path, List<string> removeLst, List<string> includeLst = null, Dictionary<string, string> msBuildMacros = null)
@@ -811,7 +788,7 @@ namespace BFlatA
                                         if (duplicatedPackages.Any())
                                         {
                                             //determine newer version by path string order, no matter if libPath is one of duplicatedPackages.
-                                            libPath = duplicatedPackages.Concat(new[] { libPath })
+                                            libPath = duplicatedPackages.Concat([libPath])
                                                 .OrderByDescending(i => i.Replace("netstandard", "").Replace("net", "").Replace("netcoreapp", "").Replace("netcore", "").Replace(".", "")).First();
                                             foreach (var p in duplicatedPackages.ToArray()) libBook.Remove(p);
                                             libBook.Add(libPath);
@@ -868,7 +845,7 @@ namespace BFlatA
                                         var nodes = nuspecDoc.Root.Descendants(XSD_NUGETSPEC + "group");
                                         nodes = nodes.FirstOrDefault(g => g.Attribute("targetFramework")?.Value.ToLower().TrimStart('.') == actualTarget)?.Elements();
                                         var myNugetPackages = nodes?.ToDictionary(kv => kv.Attribute("id")?.Value, kv => kv.Attribute("version")?.Value);
-                                        if (myNugetPackages?.Count > 0) libBook = MatchPackages(allLibPaths, myNugetPackages, packageRoot, new[] { actualTarget }, libBook); //Append Nuget dependencies to libBook
+                                        if (myNugetPackages?.Count > 0) libBook = MatchPackages(allLibPaths, myNugetPackages, packageRoot, [actualTarget], libBook); //Append Nuget dependencies to libBook
                                         break;
                                     }
                                     else Console.WriteLine($"Warning:nuspecFile not exists, packages dependencies cannot be determined!! {nuspecPath}");
@@ -902,7 +879,7 @@ namespace BFlatA
             //Parse input args
             List<string> restArgs = new(args);
             List<string> bfaFiles = [];
-            if (!args.Any() || args.Contains("-?") || args.Contains("/?") || args.Contains("-h") || args.Contains("--help"))
+            if (!args.Any() || args.Any(HelpArgs.Contains))
             {
                 ShowHelp();
                 restArgs.Clear();
@@ -931,7 +908,7 @@ namespace BFlatA
                 {
                     RootProjectFile = restArgs[0];
                     //Allow .BFA to be built.
-                    if (Path.GetExtension(RootProjectFile).Equals(".bfa", StringComparison.InvariantCultureIgnoreCase))
+                    if (Path.GetExtension(RootProjectFile).Equals(BFA_FILE_EXT, StringComparison.InvariantCultureIgnoreCase))
                     {
                         bfaFiles.Add(RootProjectFile);
                     }
@@ -1283,10 +1260,7 @@ namespace BFlatA
                                                                            null, null, null, true);
                                         else err = ParseProject(buildMode, refPath, allLibPaths, target,
                                                                 packageRoot, out innerProjectName, out innerOutputType,
-                                                                out innerScript, restArgs, [],
-                                                                [], [],
-                                                                [], [],
-                                                                [], [],
+                                                                out innerScript, restArgs, [], [], [], [], [], [], [],
                                                                 true);
                                     }
                                     else err = ParseProject(buildMode, refPath, allLibPaths, target, packageRoot,
@@ -1448,11 +1422,11 @@ namespace BFlatA
             Console.WriteLine($"Caching Nuget packages from path:{packageRoot} ...");
 
             int pathCount = 0;
-            var (Left, Top) = Console.GetCursorPosition();
             bool dontCacheLib = CacheLib.Count != 0;
             bool dontCacheNuspec = CacheNuspec.Count != 0;
             try
             {
+                var (Left, Top) = Console.GetCursorPosition();
                 if (!string.IsNullOrEmpty(packageRoot))
                     foreach (var i in Directory.GetDirectories(packageRoot, "*", SearchOption.AllDirectories).DoExclude())
                     {
@@ -1487,7 +1461,7 @@ namespace BFlatA
             return lines;
         }
 
-        public static string[] RemoveArg(string[] restParams, string a) => restParams.Except(new[] { a }).ToArray();
+        public static string[] RemoveArg(string[] restParams, string a) => restParams.Except([a]).ToArray();
 
         public static void RouteLinkerArgs(in List<string> restArgs, in List<string> linkerArgs, in List<string> nativeLibs, bool useLinker)
         {
@@ -1586,10 +1560,13 @@ namespace BFlatA
             });
 
         /// <summary>
-        /// Split args and leave whatever in quotes untouched
+        /// Split args but preserve quotes.
         /// </summary>
-        /// <param name="argStr">don't have to be trimmed</param>
+        /// <param name="argStr"></param>
         /// <param name="quoteChar"></param>
+        /// <param name="optCapChar"></param>
+        /// <param name="optSeparator"></param>
+        /// <param name="optSeparatorEscaped"></param>
         /// <param name="preserveQuote"></param>
         /// <returns></returns>
         public static IEnumerable<string> SplitArgsButQuotes(this string argStr,
@@ -1921,6 +1898,42 @@ namespace BFlatA
             else loVer = hiVer = Ver2IntArray(valueRangeStr);
 
             return (loVer, hiVer);
+        }
+
+        public class ArgDefinition
+        {
+            public string Description;
+            public string Group;
+            public bool IsCaseSensitive;
+            public bool IsDirectory;
+            public bool IsFile;
+            public bool IsFlag;
+            public bool IsOption;
+            public bool IsOptional;
+            public bool IsOther;
+            public string[] LongName;
+            public string[] ShortName;
+            public List<string> Value;
+
+            public ArgDefinition(string[] shortName = null, string[] longName = null, string description = null, bool isFlag = false,
+                                 bool isOptional = true, bool isOption = false, bool isOther = false, bool isFile = false,
+                                 bool isDirectory = false, bool isCaseSensitive = false, string group = null,
+                                 string defaultValue = null)
+            {
+                IsCaseSensitive = isCaseSensitive;
+                IsFlag = isFlag;
+                IsOption = isOption;
+                IsOther = isOther;
+                ShortName = shortName;
+                LongName = longName;
+                Description = description;
+                Description = description;
+                Value = [defaultValue];
+                Group = group;
+                IsFile = isFile;
+                IsDirectory = isDirectory;
+                IsOptional = isOptional;
+            }
         }
     }
 }
