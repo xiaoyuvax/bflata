@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-[assembly: AssemblyVersion("1.5.0.8"), AssemblyProduct("BFlatA"), AssemblyDescription("https://github.com/xiaoyuvax/bflata")]
+[assembly: AssemblyVersion("1.5.0.9"), AssemblyProduct("BFlatA"), AssemblyDescription("https://github.com/xiaoyuvax/bflata")]
 
 namespace BFlatA
 {
@@ -195,13 +195,13 @@ namespace BFlatA
                         {
                             buildProc = Process.Start(compilerPath + PathSep + COMPILER, cmd.Remove(0, COMPILER.Length));
                         }
-                        else Console.WriteLine("Error:" + COMPILER + " doesn't exist in PATH!");
+                        else Console.WriteLine("Error: " + COMPILER + " doesn't exist in PATH!");
                     }
                     else buildProc = Process.Start(cmd);
                 }
                 catch (Exception ex) { Console.WriteLine(ex.Message); }
             }
-            else Console.WriteLine($"Error:build script is emtpy!");
+            else Console.WriteLine($"Error: build script is emtpy!");
             return buildProc;
         }
 
@@ -288,9 +288,9 @@ namespace BFlatA
                     catch (Exception ex) { Console.WriteLine($"{ex.Message}"); }
 
                     if (buildProc == null) Console.WriteLine($"Error occurred during executing {title}!!");
-                    else Console.WriteLine($"{title} exit code:{buildProc.ExitCode} - [{a}]");
+                    else Console.WriteLine($"{title} exit code: {buildProc.ExitCode} - [{a}]");
                 }
-                else Console.WriteLine($"{title} invalid:{a}!");
+                else Console.WriteLine($"{title} invalid: {a}!");
                 if (buildProc != null) exitCode += buildProc.ExitCode;
             }
 
@@ -305,7 +305,7 @@ namespace BFlatA
             if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
                 try
                 {
-                    Console.WriteLine($"Extracting exclus from:{path}");
+                    Console.WriteLine($"Extracting exclus from: {path}");
                     return Directory.GetFiles(path, "*.*.dll").Select(i => Path.GetFileNameWithoutExtension(i).ToLower())
                         .Where(i => i.StartsWith("system.") || i.StartsWith("microsoft.")).ToArray();
                 }
@@ -684,7 +684,7 @@ namespace BFlatA
                 if (File.Exists(excluFile))
                 {
                     count = 0;
-                    Console.WriteLine($"Exclu file found:.{PathSep}{Path.GetFileName(excluFile)}");
+                    Console.WriteLine($"Exclu file found: .{PathSep}{Path.GetFileName(excluFile)}");
                     Console.Write($"Exclus loaded:");
                     (int Left, int Top) = Console.GetCursorPosition();
                     using var st = new StreamReader(File.OpenRead(excluFile));
@@ -739,7 +739,7 @@ namespace BFlatA
                     //Check Exclu first
                     if (LibExclu.Contains(packageNameLo))
                     {
-                        if (UseVerbose) Console.WriteLine($"Info:ignore package Exclu:{packageNameLo}");
+                        if (UseVerbose) Console.WriteLine($"Info: ignore package Exclu:{packageNameLo}");
                     }
                     else foreach (var target in multiTargets)
                         {
@@ -848,9 +848,9 @@ namespace BFlatA
                                         if (myNugetPackages?.Count > 0) libBook = MatchPackages(allLibPaths, myNugetPackages, packageRoot, [actualTarget], libBook); //Append Nuget dependencies to libBook
                                         break;
                                     }
-                                    else Console.WriteLine($"Warning:nuspecFile not exists, packages dependencies cannot be determined!! {nuspecPath}");
+                                    else Console.WriteLine($"Warning: nuspecFile not exists, packages dependencies cannot be determined!! {nuspecPath}");
                                 }
-                                else Console.WriteLine($"Warning:package referenced not found!! {packageNameLo} {actualVersion}");
+                                else Console.WriteLine($"Warning: package referenced not found!! {packageNameLo} {actualVersion}");
                             }
 
                             //If any dependency found for any target, stop matching other targets in order(the other targets usually r netstandard).
@@ -927,7 +927,7 @@ namespace BFlatA
                     {
                         h = h.TrimQuotes();
                         if (Directory.Exists(h)) MSBuildStartupDirectory = Path.GetFullPath(h).TrimPathEnd();
-                        else Console.WriteLine($"Warning:Home path does not exist or is invalid! {h}");
+                        else Console.WriteLine($"Warning: Home path does not exist or is invalid! {h}");
                     }
                 }
 
@@ -941,7 +941,7 @@ namespace BFlatA
                     {
                         pr = pr.TrimQuotes();
                         if (Directory.Exists(pr)) PackageRoot = Path.GetFullPath(pr).TrimPathEnd();  //the ending PathSep may cause shell script variable invalid like $PRcommon.log/ after replacement by placeholder @
-                        else Console.WriteLine($"Warning:PacakgeRoot does not exist or is invalid! {pr}");
+                        else Console.WriteLine($"Warning: PacakgeRoot does not exist or is invalid! {pr}");
                     }
                     else if (TryTakeArg(a, "", "--resgen", restArgs, out string rg))
                     {
@@ -952,7 +952,7 @@ namespace BFlatA
                             restArgs.Add("--feature:System.Resources.ResourceManager.AllowCustomResourceTypes=true");
                             restArgs.Add("--feature:System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization=true");
                         }
-                        else Console.WriteLine($"Warning:Resgen.exe does not exist or is invalid! {rg}");
+                        else Console.WriteLine($"Warning: Resgen.exe does not exist or is invalid! {rg}");
                     }
                     else if (TryTakeArg(a, "", "--linker", restArgs, out string lnk))
                     {
@@ -962,7 +962,7 @@ namespace BFlatA
                             Linker = Path.GetFullPath(lnk);
                             restArgs.Add("-c"); //suppress BFlat Linker
                         }
-                        else Console.WriteLine($"Warning:Linker does not exist or is invalid! {lnk}");
+                        else Console.WriteLine($"Warning: Linker does not exist or is invalid! {lnk}");
                     }
                     else if (TryTakeArg(a, "-inc", "--include", restArgs, out string inc) && File.Exists(inc))
                     {
@@ -996,7 +996,7 @@ namespace BFlatA
                     {
                         xx = xx.TrimQuotes();
                         if (Directory.Exists(xx)) RuntimePathExclu = Path.GetFullPath(xx).TrimPathEnd();
-                        else Console.WriteLine($"Warning:RuntimePath does not exist or is invalid! {xx}");
+                        else Console.WriteLine($"Warning: RuntimePath does not exist or is invalid! {xx}");
                     }
                     else if (a.Equals("-dd", StringComparison.InvariantCultureIgnoreCase) || a.Equals("--depdep", StringComparison.InvariantCultureIgnoreCase))
                     {
@@ -1030,7 +1030,14 @@ namespace BFlatA
                 if (BuildMode == BuildMode.None) BuildMode = BuildMode.Flat; //default BuildMode for Build option
             }
             else if (UseFlatten) BuildMode = BuildMode.Flat;  //can only flattens in Flat mode
-            else if (BuildMode == BuildMode.Tree) Console.WriteLine("Warning:.rsp script generated under TREE mode is not buildable!");
+            else if (BuildMode == BuildMode.Tree) Console.WriteLine("Warning: .rsp script generated under TREE mode is not buildable!");
+
+            var envPackage = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+            if (!string.IsNullOrEmpty(envPackage) && Directory.Exists(envPackage))
+            {
+                PackageRoot = Path.GetFullPath(envPackage);
+                Console.WriteLine($"Found environment variable %NUGET_PACKAGE% for PackageRoot: {envPackage}");
+            }
 
             if (string.IsNullOrEmpty(TargetFx)) TargetFx = "net8.0";
 
@@ -1094,7 +1101,7 @@ namespace BFlatA
             ///Flag if already built
             if (!ParsedProjectPaths.Contains(projectFile))
             {
-                Console.WriteLine($"Parsing Project:{projectFile} ...");
+                Console.WriteLine($"Parsing Project: {projectFile} ...");
                 if (!string.IsNullOrEmpty(projectFile) && File.Exists(projectFile))
                 {
                     XDocument xdoc = new();
@@ -1278,7 +1285,7 @@ namespace BFlatA
                                     }
                                     else if (err != 0)
                                     {
-                                        Console.WriteLine($"Error:failure building dependency:{projectName}=>{innerProjectName}!!! ");
+                                        Console.WriteLine($"Error: failure building dependency - {projectName}=>{innerProjectName}!!! ");
                                         break; //any dependency failure,break!
                                     }
                                 }
@@ -1316,15 +1323,15 @@ namespace BFlatA
                                     else buildProc = Build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
 
                                     buildProc?.WaitForExit();
-                                    Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
+                                    Console.WriteLine($"Compiler exit code: {buildProc.ExitCode}");
 
                                     if (buildProc.ExitCode != 0)
                                     {
-                                        Console.WriteLine($"Error:Building failure:{projectName}!!!");
+                                        Console.WriteLine($"Error: Building failure: {projectName}!!!");
                                         return buildProc.ExitCode;
                                     }
                                     //Must wait for dependecy to be compiled
-                                    if (!SpinWait.SpinUntil(() => IsReadable(argOutputFile), 10000)) Console.WriteLine($"Error:building timeout!");
+                                    if (!SpinWait.SpinUntil(() => IsReadable(argOutputFile), 10000)) Console.WriteLine($"Error: building timeout!");
                                     else Console.WriteLine("Script execution completed!");
                                 }
                                 else if (UseFlatten || UseFlattenAll)
@@ -1334,7 +1341,7 @@ namespace BFlatA
                                 {
                                     myScript = GenerateScript(projectName, restArgs.Concat(linkerArgs), codeBook, libBook, nativeLibBook, myFlatResBook, buildMode, packageRoot, outputType, isDependency, argOutputFile);
                                     myScript += getRefProjectLines();
-                                    Console.WriteLine($"Appending Script:{projectName}...{NL}");
+                                    Console.WriteLine($"Appending Script: {projectName}...{NL}");
                                     script = AppendScriptBlock(script, myScript);
                                 }
                             }
@@ -1342,7 +1349,7 @@ namespace BFlatA
                         }
                         else
                         {
-                            Console.WriteLine($"Warning:Project properties are not compatible with the target:{target}, {projectFile}!!! ");
+                            Console.WriteLine($"Warning: Project properties are not compatible with the target: {target}, {projectFile}!!! ");
                             return -0x13;
                         }
 
@@ -1407,7 +1414,7 @@ namespace BFlatA
             }
             else
             {
-                if (UseVerbose) Console.WriteLine($"Warning:project already parsed, ignoring it:" + projectFile);
+                if (UseVerbose) Console.WriteLine($"Warning: project already parsed, ignoring it:" + projectFile);
             }
 
             return 0;
@@ -1419,7 +1426,7 @@ namespace BFlatA
         /// <param name="packageRoot"></param>
         public static void PreCacheLibs(string packageRoot)
         {
-            Console.WriteLine($"Caching Nuget packages from path:{packageRoot} ...");
+            Console.WriteLine($"Caching Nuget packages from path: {packageRoot} ...");
 
             int pathCount = 0;
             bool dontCacheLib = CacheLib.Count != 0;
@@ -1660,7 +1667,7 @@ namespace BFlatA
                 var excluFile = moniker + "." + EXCLU_EXT;
                 using var st = File.Create(excluFile);
                 foreach (var l in LibExclu) st.Write(Encoding.UTF8.GetBytes(l + NL));
-                Console.WriteLine($"{LibExclu.Length} exclus saved to:{excluFile} !");
+                Console.WriteLine($"{LibExclu.Length} exclus saved to: {excluFile} !");
             }
             catch (Exception e) { Console.WriteLine(e.Message); }
         }
@@ -1675,7 +1682,7 @@ namespace BFlatA
                 using var st = File.Create(scriptFileName);
                 st.Write(buf);
                 st.Flush();
-                Console.WriteLine($"Script:{scriptFileName} written!{NL}");
+                Console.WriteLine($"Script: {scriptFileName} written!{NL}");
             }
             catch (Exception e)
             {
@@ -1716,17 +1723,17 @@ namespace BFlatA
             if (restArgs == null) return -1;
             else if (restArgs.Contains("?")) return 0;
             Console.WriteLine($"{NL}--ARGS--------------------------------");
-            Console.WriteLine(PadLine("Action", $":{Action}"));
-            Console.WriteLine(PadLine("BuildMode", $":{BuildMode}"));
-            Console.WriteLine(PadLine("DepositDep", $":{(DepositLib ? "On" : "Off")}"));
-            Console.WriteLine(PadLine("Target", $":{OutputType}"));
-            Console.WriteLine(PadLine("TargetOS", $":{OS}"));
-            Console.WriteLine(PadLine("Output", $":{OutputFile ?? "<Default>"}"));
-            Console.WriteLine(PadLine("TargetFx", $":{TargetFx}"));
-            Console.WriteLine(PadLine("PackageRoot", $":{PackageRoot ?? "<N/A>"}"));
-            Console.WriteLine(PadLine("Home", $":{MSBuildStartupDirectory}"));
-            if (BFAFiles.Count > 0) Console.WriteLine(PadLine("BFA Includes", $":{BFAFiles.Count}"));
-            Console.WriteLine(PadLine("Args for BFlat", $":{(restArgs.Count > 20 ? string.Join(' ', restArgs.ToArray()[..20]) + " ..." : string.Join(' ', restArgs))}"));
+            Console.WriteLine(PadLine("Action", $": {Action}"));
+            Console.WriteLine(PadLine("BuildMode", $": {BuildMode}"));
+            Console.WriteLine(PadLine("DepositDep", $": {(DepositLib ? "On" : "Off")}"));
+            Console.WriteLine(PadLine("Target", $": {OutputType}"));
+            Console.WriteLine(PadLine("TargetOS", $": {OS}"));
+            Console.WriteLine(PadLine("Output", $": {OutputFile ?? "<Default>"}"));
+            Console.WriteLine(PadLine("TargetFx", $": {TargetFx}"));
+            Console.WriteLine(PadLine("PackageRoot", $": {PackageRoot ?? "<N/A>"}"));
+            Console.WriteLine(PadLine("Home", $": {MSBuildStartupDirectory}"));
+            if (BFAFiles.Count > 0) Console.WriteLine(PadLine("BFA Includes", $": {BFAFiles.Count}"));
+            Console.WriteLine(PadLine("Args for BFlat", $": {(restArgs.Count > 20 ? string.Join(' ', restArgs.ToArray()[..20]) + " ..." : string.Join(' ', restArgs))}"));
             Console.WriteLine();
 
             if (!string.IsNullOrEmpty(RootProjectFile))
@@ -1815,12 +1822,12 @@ namespace BFlatA
                                     {
                                         Console.WriteLine($"{NL}--BUILDING----------------------------");
                                         //Start Building
-                                        Console.WriteLine($"Building in FLAT mode:{projectName}...");
+                                        Console.WriteLine($"Building in FLAT mode: {projectName}...");
                                         buildProc = Build($"bflat {(UseBuildIL ? "build-il" : "build")} @build.rsp");
                                         if (buildProc != null)
                                         {
                                             buildProc.WaitForExit();
-                                            Console.WriteLine($"Compiler exit code:{buildProc.ExitCode}");
+                                            Console.WriteLine($"Compiler exit code: {buildProc.ExitCode}");
 
                                             if (buildProc.ExitCode == 0)  //invoke linker
                                             {
@@ -1833,7 +1840,7 @@ namespace BFlatA
                                                         {
                                                             buildProc = Process.Start(Linker, "@link.rsp");
                                                             buildProc?.WaitForExit();
-                                                            Console.WriteLine($"Linker exit code:{buildProc.ExitCode}");
+                                                            Console.WriteLine($"Linker exit code: {buildProc.ExitCode}");
 
                                                             if (buildProc.ExitCode == 0 && PostBuildActions.Count != 0)
                                                             {
